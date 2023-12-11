@@ -1,4 +1,10 @@
 .idea/
+audio/bert
+audio/denoise
+audio/split
+audio/tts
+audio/upload
+audio/vad
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

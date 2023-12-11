@@ -1,1 +1,6 @@
 fire
+scipy
+numpy
+tqdm
+numba
+librosa
