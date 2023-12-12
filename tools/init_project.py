@@ -1,5 +1,4 @@
 import os
-import fire
 
 
 def create_project_dirs() -> None:
@@ -22,4 +21,3 @@ def create_project_dirs() -> None:
         data_down_dir_ = os.path.join("data", data_down_dir)
         if not os.path.exists(data_down_dir_):
             os.makedirs(data_down_dir_)
-

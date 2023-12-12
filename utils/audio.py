@@ -62,7 +62,7 @@ def split_audio_asr(
     spk_id: str,
     whisper_model: Whisper,
     target_sr: int = 44100
-):
+) -> Union[None, List[str]]:
     """使用 ASR 切分音频，因为模型训练所需音频的采样率未 44100，所以这里切分后的音频都重采样为 44100"""
     asr_res = whisper.transcribe(
         model=whisper_model,
@@ -89,6 +89,9 @@ def split_audio_asr(
     save_dir = os.path.join("audio", "segments", spk_id)
     audio_filename = os.path.basename(audio_filepath).split('.')[0]
 
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     _ = [os.remove(file) for file in glob.glob(f"audio/segments/{spk_id}/{audio_filename}*.wav")]
 
     audios_segments_info = []
@@ -108,10 +111,17 @@ def split_audio_asr(
             data=(audio_seg * np.iinfo(np.int16).max).astype(np.int16)
         )
 
-        audios_segments_info.append([out_filepath, seg_text, seg_duration])
+        audios_segments_info.append([out_filepath, spk_id, "ZH", seg_text, seg_duration])
 
-    df_audio_asr = pd.DataFrame(audios_segments_info, columns=["audio_id", "text", "duration"])
-    df_audio_asr.to_csv(f"data/asr/{audio_filename}.csv", index=False, encoding="utf8")
+    df_audio_asr = pd.DataFrame(
+        audios_segments_info, columns=["audio_id", "spk_id", "lang", "text", "duration"]
+    )
+
+    if not os.path.exists(f"data/asr/{spk_id}"):
+        os.makedirs(f"data/asr/{spk_id}")
+
+    df_audio_asr.to_csv(f"data/asr/{spk_id}/{audio_filename}.csv",
+                        index=False, encoding="utf8")
     audios_segments = [audios_segment_info[0] for audios_segment_info in audios_segments_info]
     return audios_segments
 
@@ -138,4 +148,3 @@ def split_audio_vad_asr(
         split_audio_asr(audio_filepath, spk_id, whisper_model)
     else:
         ...
-

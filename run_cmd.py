@@ -7,9 +7,11 @@ from modelscope.utils.constant import Tasks
 
 from utils.audio import denoise_audio, split_audio_vad_asr
 from tools.init_project import create_project_dirs
+from tools.preprocess_text import generate_training_samples
 
 
-def stage2_denoise_audio():
+
+def stage3_denoise_audio():
     denoise_model_name = "speech_dfsmn_ans_psm_48k_causal"
     logger.info(f"加载音频降噪模型: {denoise_model_name}")
     denoise_ans = pipeline(
@@ -25,7 +27,7 @@ def stage2_denoise_audio():
     logger.info(f"音频降噪完成，路径为: {denoise_audio_path}")
 
 
-def stage3_split_audio(whisper_model_size: str = "medium"):
+def stage4_split_audio(whisper_model_size: str = "medium"):
     """切分音频"""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"加载 Whisper ASR 模型: {whisper_model_size}")
@@ -52,6 +54,9 @@ if __name__ == '__main__':
     elif args.stage == 2:
         ...  # 分离双声道
     elif args.stage == 3:
-        stage2_denoise_audio()
+        stage3_denoise_audio()
     elif args.stage == 4:
-        stage3_split_audio(args.whisper_size)
+        stage4_split_audio(args.whisper_size)
+    elif args.stage == 5:
+        generate_training_samples()
+
