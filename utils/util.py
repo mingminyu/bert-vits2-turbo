@@ -161,20 +161,22 @@ def load_filepaths_and_text(filename, split="|"):
 
 
 def get_hparams(init=True):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default="./config/config.json",
-                        help='JSON file for configuration')
-    parser.add_argument('-m', '--model', type=str, default="./OUTPUT_MODEL",
-                        help='Model name')
-    parser.add_argument('--cont', dest='cont', action="store_true", default=False, help="whether to continue training on the latest checkpoint")
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('-c', '--config', type=str, default="./config/config.json",
+    #                     help='JSON file for configuration')
+    # parser.add_argument('-m', '--model', type=str, default="./OUTPUT_MODEL",
+    #                     help='Model name')
+    # parser.add_argument('--cont', dest='cont', action="store_true", default=False, help="whether to continue training on the latest checkpoint")
 
-    args = parser.parse_args()
-    model_dir = os.path.join("./logs", args.model)
+    # args = parser.parse_args()
+    # model_dir = os.path.join("./logs", args.model)
+    model_dir = os.path.join("./logs", "OUTPUT_MODEL")
 
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    config_path = args.config
+    # config_path = args.config
+    config_path = "config/config.json"
     config_save_path = os.path.join(model_dir, "config.json")
     if init:
         with open(config_path, "r") as f:
@@ -188,7 +190,8 @@ def get_hparams(init=True):
 
     hparams = HParams(**config)
     hparams.model_dir = model_dir
-    hparams.cont = args.cont
+    # hparams.cont = args.cont
+    hparams.cont = False
     return hparams
 
 
@@ -213,6 +216,7 @@ def clean_checkpoints(path_to_models='logs/44k/', n_ckpts_to_keep=2, sort_by_tim
     del_info = lambda fn: logger.info(f".. Free up space by deleting ckpt {fn}")
     del_routine = lambda x: [os.remove(x), del_info(x)]
     rs = [del_routine(fn) for fn in to_del]
+
 
 def get_hparams_from_dir(model_dir):
     config_save_path = os.path.join(model_dir, "config.json")

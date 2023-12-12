@@ -36,7 +36,7 @@ from utils.losses import (
 from utils.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from text.symbols import symbols
 
-logging.getLogger('numba').setLevel(logging.WARNING)
+# logging.getLogger('numba').setLevel(logging.WARNING)
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -44,7 +44,7 @@ torch.set_float32_matmul_precision('medium')
 global_step = 0
 
 
-def main():
+def train():
     """Assume Single Node Multi GPUs Training Only"""
     assert torch.cuda.is_available(), "CPU training is not allowed."
 
@@ -409,6 +409,3 @@ def evaluate(hps, generator, eval_loader, writer_eval):
     )
     generator.train()
 
-
-if __name__ == "__main__":
-    main()
