@@ -3,4 +3,7 @@ scipy
 numpy
 tqdm
 numba
+loguru
 librosa
+modelscope
+pandas

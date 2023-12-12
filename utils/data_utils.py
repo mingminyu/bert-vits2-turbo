@@ -5,8 +5,8 @@ import numpy as np
 import torch
 import torch.utils.data
 import torchaudio
-import commons
-from mel_processing import spectrogram_torch, mel_spectrogram_torch, spec_to_mel_torch
+from utils import commons
+from utils.mel_processing import spectrogram_torch, mel_spectrogram_torch, spec_to_mel_torch
 from utils.util import load_wav_to_torch, load_filepaths_and_text
 from text import cleaned_text_to_sequence, get_bert
 

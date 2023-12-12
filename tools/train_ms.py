@@ -54,9 +54,9 @@ def main():
 
     hps = util.get_hparams()
     if not hps.cont:
-        shutil.copy('./pretrained_models/D_0.pth', './logs/OUTPUT_MODEL/D_0.pth')
-        shutil.copy('./pretrained_models/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
-        shutil.copy('./pretrained_models/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
+        shutil.copy('./pretrained_models/vits2_base_model/D_0.pth', './logs/OUTPUT_MODEL/D_0.pth')
+        shutil.copy('./pretrained_models/vits2_base_model/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
+        shutil.copy('./pretrained_models/vits2_base_model/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
     mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
 
 
