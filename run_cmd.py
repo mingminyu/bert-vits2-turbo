@@ -48,8 +48,12 @@ def stage4_split_audio(whisper_model_size: str = "medium"):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", default=1, type=int)
-    parser.add_argument("--whisper_size", default="medium", type=str)
     parser.add_argument("--spk_id", default="", type=str)
+    parser.add_argument('--download_pretrained_models',
+                        action="store_true", default=False,
+                        help="是否下载预训练模型"
+    )
+    parser.add_argument("--whisper_size", default="medium", type=str)
     args = parser.parse_args()
 
     proj_cfg = Vits2Config(yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json")
