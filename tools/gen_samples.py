@@ -5,21 +5,23 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from text.cleaner import clean_text
+from utils.config import GenSamplesConfig
+
+"""
+对应到原项目中 preprocess_text.py 脚本，因为这个模块仅仅是生成训练样本的，所以我这里做了函数名都做了修改
+"""
 
 
 def generate_training_samples(
-    asr_dir: str = "data/asr",
-    val_per_spk: int = 4,
-    max_val_total: int = 8
+    gen_samples_config: GenSamplesConfig
 ):
     """生成训练样本"""
     df = pd.concat(
-        [pd.read_csv(file) for file in glob.glob(f"{asr_dir}/*/*.csv")],
+        [pd.read_csv(file) for file in glob.glob(f"{gen_samples_config.asr_dir}/*/*.csv")],
         ignore_index=True
     )
     df["text"] = df["text"].str.strip()
     df["cleaned"] = df[["text", "lang"]].apply(lambda s: clean_text(s[0], s[1]), axis=1)
-
     df["norm_text"] = df['cleaned'].map(lambda s: s[0])
     df["phones"] = df['cleaned'].map(lambda s: " ".join(s[1]))
     df["tones"] = df['cleaned'].map(lambda s: " ".join(map(str, s[2])))
@@ -28,30 +30,30 @@ def generate_training_samples(
     if not os.path.exists("data/cleaned"):
         os.makedirs("data/cleaned")
 
-    cleaned_save_path = os.path.join("data/cleaned", "samples_cleaned.csv")
     save_cols = ["audio_id", "spk_id", "lang", "norm_text", "phones", "tones", "word2ph"]
     df[save_cols].to_csv(
-        cleaned_save_path,
+        gen_samples_config.cleaned_path,
         index=False, sep="|", header=False, encoding='utf8'
     )
 
+    test_size = gen_samples_config.val_per_spk * df['spk_id'].nunique()
     df_train, df_val = train_test_split(
-        df[save_cols], test_size=val_per_spk * df['spk_id'].nunique(), shuffle=True,
+        df[save_cols], test_size=test_size, shuffle=True,
         random_state=42, stratify=df['spk_id']
     )
 
-    # TODO: 源代码里面直接使用全部数据作为训练集，其实不太合理
-    df[save_cols].to_csv("data/train/train_samples.csv", index=False, sep="|", header=False, encoding='utf8')
-    df_val.to_csv("data/train/val_samples.csv", index=False, sep="|", header=False, encoding='utf8')
+    # 在 BERT-VITS2 1.0 版本中，源代码直接使用全部数据作为训练集，其实不太合理
+    # 在 BERT-VITS2 2.x 版本中，这个问题得到的修正
+    df_train.to_csv(gen_samples_config.train_path, index=False, sep="|", header=False, encoding='utf8')
+    df_val.to_csv(gen_samples_config.val_path, index=False, sep="|", header=False, encoding='utf8')
 
-    config_path = "config/config.json"
-    with open(config_path, 'r', encoding='utf8') as f:
+    with open(gen_samples_config.config_path, 'r', encoding='utf8') as f:
         model_config = json.loads(f.read())
 
-    model_config['data']['training_files'] = "data/train/train_samples.csv"
-    model_config['data']['validation_files'] = "data/train/val_samples.csv"
+    model_config['data']['training_files'] = gen_samples_config.train_path
+    model_config['data']['validation_files'] = gen_samples_config.val_path
     model_config['data']['spk2id'] = dict(zip(df['spk_id'].unique(), range(df['spk_id'].nunique())))
     model_config['data']['n_speakers'] = df['spk_id'].nunique()
 
-    with open(config_path, "w", encoding="utf-8") as fw:
+    with open(gen_samples_config.config_path, "w", encoding="utf-8") as fw:
         json.dump(model_config, fw, indent=2, ensure_ascii=False)

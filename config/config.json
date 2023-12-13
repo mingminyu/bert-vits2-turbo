@@ -17,7 +17,8 @@
     "init_lr_ratio": 1,
     "warmup_epochs": 0,
     "c_mel": 45,
-    "c_kl": 1.0
+    "c_kl": 1.0,
+    "keep_ckpts": 5
   },
   "data": {
     "use_mel_posterior_encoder": false,
@@ -73,21 +74,9 @@
         5
       ]
     ],
-    "upsample_rates": [
-      8,
-      8,
-      2,
-      2,
-      2
-    ],
+    "upsample_rates": [8, 8, 2, 2, 2],
     "upsample_initial_channel": 512,
-    "upsample_kernel_sizes": [
-      16,
-      16,
-      8,
-      2,
-      2
-    ],
+    "upsample_kernel_sizes": [16, 16, 8, 2, 2],
     "n_layers_q": 3,
     "use_spectral_norm": false,
     "gin_channels": 256

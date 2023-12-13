@@ -1,25 +1,9 @@
-# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-from typing import List
-from typing import Tuple
-
 import jieba
-from pypinyin import lazy_pinyin
-from pypinyin import Style
+from typing import List, Tuple
+from pypinyin import lazy_pinyin, Style
 
 
-class ToneSandhi():
+class ToneSandhi:
     def __init__(self):
         self.must_neural_tone_words = {
             '麻烦', '麻利', '鸳鸯', '高粱', '骨头', '骆驼', '马虎', '首饰', '馒头', '馄饨', '风筝',
@@ -82,10 +66,12 @@ class ToneSandhi():
             } and word not in self.must_not_neural_tone_words:
                 finals[j] = finals[j][:-1] + "5"
         ge_idx = word.find("个")
+
         if len(word) >= 1 and word[-1] in "吧呢啊呐噻嘛吖嗨呐哦哒额滴哩哟喽啰耶喔诶":
             finals[-1] = finals[-1][:-1] + "5"
         elif len(word) >= 1 and word[-1] in "的地得":
             finals[-1] = finals[-1][:-1] + "5"
+
         # e.g. 走了, 看着, 去过
         # elif len(word) == 1 and word in "了着过" and pos in {"ul", "uz", "ug"}:
         #     finals[-1] = finals[-1][:-1] + "5"
@@ -119,22 +105,21 @@ class ToneSandhi():
         finals = sum(finals_list, [])
         return finals
 
-    def _bu_sandhi(self, word: str, finals: List[str]) -> List[str]:
+    @staticmethod
+    def _bu_sandhi(word: str, finals: List[str]) -> List[str]:
         # e.g. 看不懂
         if len(word) == 3 and word[1] == "不":
             finals[1] = finals[1][:-1] + "5"
         else:
             for i, char in enumerate(word):
                 # "不" before tone4 should be bu2, e.g. 不怕
-                if char == "不" and i + 1 < len(word) and finals[i +
-                                                                1][-1] == "4":
+                if char == "不" and i + 1 < len(word) and finals[i + 1][-1] == "4":
                     finals[i] = finals[i][:-1] + "2"
         return finals
 
     def _yi_sandhi(self, word: str, finals: List[str]) -> List[str]:
         # "一" in number sequences, e.g. 一零零, 二一零
-        if word.find("一") != -1 and all(
-            [item.isnumeric() for item in word if item != "一"]):
+        if word.find("一") != -1 and all([item.isnumeric() for item in word if item != "一"]):
             return finals
         # "一" between reduplication words shold be yi5, e.g. 看一看
         elif len(word) == 3 and word[1] == "一" and word[0] == word[-1]:
@@ -155,11 +140,13 @@ class ToneSandhi():
                             finals[i] = finals[i][:-1] + "4"
         return finals
 
-    def _split_word(self, word: str) -> List[str]:
+    @staticmethod
+    def _split_word(word: str) -> List[str]:
         word_list = jieba.cut_for_search(word)
         word_list = sorted(word_list, key=lambda i: len(i), reverse=False)
         first_subword = word_list[0]
         first_begin_idx = word.find(first_subword)
+
         if first_begin_idx == 0:
             second_subword = word[len(first_subword):]
             new_word_list = [first_subword, second_subword]
@@ -173,6 +160,7 @@ class ToneSandhi():
             finals[0] = finals[0][:-1] + "2"
         elif len(word) == 3:
             word_list = self._split_word(word)
+
             if self._all_tone_three(finals):
                 #  disyllabic + monosyllabic, e.g. 蒙古/包
                 if len(word_list[0]) == 2:
@@ -207,22 +195,25 @@ class ToneSandhi():
 
         return finals
 
-    def _all_tone_three(self, finals: List[str]) -> bool:
+    @staticmethod
+    def _all_tone_three(finals: List[str]) -> bool:
         return all(x[-1] == "3" for x in finals)
 
     # merge "不" and the word behind it
     # if don't merge, "不" sometimes appears alone according to jieba, which may occur sandhi error
-    def _merge_bu(self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    @staticmethod
+    def _merge_bu(seg: List[List[str, str]]) -> List[List[str, str]]:
         new_seg = []
         last_word = ""
         for word, pos in seg:
             if last_word == "不":
                 word = last_word + word
             if word != "不":
-                new_seg.append((word, pos))
+                new_seg.append([word, pos])
             last_word = word[:]
+
         if last_word == "不":
-            new_seg.append((last_word, 'd'))
+            new_seg.append([last_word, 'd'])
             last_word = ""
         return new_seg
 
@@ -232,7 +223,8 @@ class ToneSandhi():
     # e.g.
     # input seg: [('听', 'v'), ('一', 'm'), ('听', 'v')]
     # output seg: [['听一听', 'v']]
-    def _merge_yi(self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    @staticmethod
+    def _merge_yi(seg: List[List[str, str]]) -> List[List[str, str]]:
         new_seg = []
         # function 1
         for i, (word, pos) in enumerate(seg):
@@ -247,6 +239,7 @@ class ToneSandhi():
                     new_seg.append([word, pos])
         seg = new_seg
         new_seg = []
+
         # function 2
         for i, (word, pos) in enumerate(seg):
             if new_seg and new_seg[-1][0] == "一":
@@ -257,7 +250,7 @@ class ToneSandhi():
 
     # the first and the second words are all_tone_three
     def _merge_continuous_three_tones(
-            self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+            self, seg: List[List[str, str]]) -> List[List[str, str]]:
         new_seg = []
         sub_finals_list = [
             lazy_pinyin(
@@ -282,12 +275,14 @@ class ToneSandhi():
 
         return new_seg
 
-    def _is_reduplication(self, word: str) -> bool:
+    @staticmethod
+    def _is_reduplication(word: str) -> bool:
         return len(word) == 2 and word[0] == word[1]
 
     # the last char of first word and the first char of second word is tone_three
     def _merge_continuous_three_tones_2(
-            self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+            self, seg: List[List[str, str]]
+    ) -> List[List[str, str]]:
         new_seg = []
         sub_finals_list = [
             lazy_pinyin(
@@ -310,17 +305,20 @@ class ToneSandhi():
                 new_seg.append([word, pos])
         return new_seg
 
-    def _merge_er(self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    @staticmethod
+    def _merge_er(seg: List[List[str, str]]) -> List[List[str, str]]:
         new_seg = []
         for i, (word, pos) in enumerate(seg):
-            if i - 1 >= 0 and word == "儿" and seg[i-1][0] != "#":
+            if i - 1 >= 0 and word == "儿" and seg[i - 1][0] != "#":
                 new_seg[-1][0] = new_seg[-1][0] + seg[i][0]
             else:
                 new_seg.append([word, pos])
         return new_seg
 
+    @staticmethod
     def _merge_reduplication(
-            self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+            seg: List[List[str, str]]
+    ) -> List[List[str, str]]:
         new_seg = []
         for i, (word, pos) in enumerate(seg):
             if new_seg and word == new_seg[-1][0]:
@@ -330,20 +328,20 @@ class ToneSandhi():
         return new_seg
 
     def pre_merge_for_modify(
-            self, seg: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+            self, seg: List[List[str, str]]) -> List[List[str, str]]:
         seg = self._merge_bu(seg)
         try:
             seg = self._merge_yi(seg)
         except:
             print("_merge_yi failed")
+
         seg = self._merge_reduplication(seg)
         seg = self._merge_continuous_three_tones(seg)
         seg = self._merge_continuous_three_tones_2(seg)
         seg = self._merge_er(seg)
         return seg
 
-    def modified_tone(self, word: str, pos: str,
-                      finals: List[str]) -> List[str]:
+    def modified_tone(self, word: str, pos: str, finals: List[str]) -> List[str]:
         finals = self._bu_sandhi(word, finals)
         finals = self._yi_sandhi(word, finals)
         finals = self._neural_sandhi(word, pos, finals)

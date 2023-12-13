@@ -7,7 +7,7 @@ tokenizer = AutoTokenizer.from_pretrained("./pretrained_models/chinese-roberta-w
 model = AutoModelForMaskedLM.from_pretrained("./pretrained_models/chinese-roberta-wwm-ext-large").to(device)
 
 
-def get_bert_feature(text, word2ph):
+def get_bert_feature(text: str, word2ph):
     with torch.no_grad():
         inputs = tokenizer(text, return_tensors='pt')
         for i in inputs:
@@ -18,6 +18,7 @@ def get_bert_feature(text, word2ph):
     assert len(word2ph) == len(text)+2
     word2phone = word2ph
     phone_level_feature = []
+
     for i in range(len(word2phone)):
         repeat_feature = res[i].repeat(word2phone[i], 1)
         phone_level_feature.append(repeat_feature)

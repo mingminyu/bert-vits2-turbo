@@ -1,0 +1,30 @@
+# 对音频数据批量进行重采样
+resample:
+  sampling_rate: 44100
+  in_dir:
+  out_dir:
+
+# gen_samples 数据集预处理相关配置
+gen_samples:
+  # 音频转写文本文件夹
+  asr_dir: "data/asr"
+  # 原始文本文件路径，文本格式应为{wav_path}|{speaker_name}|{language}|{text}
+  trans_path: "data/asr/samples.csv"
+  # 数据清洗后文本路径，可以不填。不填则将在原始文本目录生成
+  cleaned_path: "data/cleaned/samples_cleaned.csv"
+  # 训练集路径
+  train_path: "data/train/train_samples.csv"
+  # 验证集路径
+  val_path: "data/train/val_samples.csv"
+  # 配置文件路径
+  config_path: "config/config.json"
+  # 每个speaker的验证集条数
+  val_per_spk: 4
+  # 验证集最大条数，多于的会被截断并放到训练集中，暂时未使用到
+  max_val_total: 8
+  # 是否进行数据清洗
+  clean: true
+
+gen_bert:
+
+

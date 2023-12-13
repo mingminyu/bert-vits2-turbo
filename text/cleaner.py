@@ -1,9 +1,7 @@
 from text import chinese, cleaned_text_to_sequence
 
 
-language_module_map = {
-    'ZH': chinese
-}
+language_module_map = {'ZH': chinese}
 
 
 def clean_text(text: str, language: str):
@@ -24,4 +22,3 @@ def clean_text_bert(text: str, language: str):
 def text_to_sequence(text: str, language: str):
     norm_text, phones, tones, word2ph = clean_text(text, language)
     return cleaned_text_to_sequence(phones, tones, language)
-

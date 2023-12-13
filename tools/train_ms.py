@@ -1,11 +1,7 @@
 import os
-import json
-import argparse
-import itertools
-import math
+
 import torch
 import shutil
-from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -14,25 +10,17 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
-import logging
+# import logging
+# import json
+# import argparse
+# import itertools
+# import math
+# from torch import nn, optim
 
 from utils import commons, util
-from utils.data_utils import (
-    TextAudioSpeakerLoader,
-    TextAudioSpeakerCollate,
-    DistributedBucketSampler
-)
-from utils.models import (
-    SynthesizerTrn,
-    MultiPeriodDiscriminator,
-    DurationDiscriminator,
-)
-from utils.losses import (
-    generator_loss,
-    discriminator_loss,
-    feature_loss,
-    kl_loss
-)
+from utils.data_utils import TextAudioSpeakerLoader, TextAudioSpeakerCollate, DistributedBucketSampler
+from utils.models import SynthesizerTrn, MultiPeriodDiscriminator, DurationDiscriminator
+from utils.losses import generator_loss, discriminator_loss, feature_loss, kl_loss
 from utils.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from text.symbols import symbols
 
@@ -69,8 +57,11 @@ def run(rank, n_gpus, hps):
         writer = SummaryWriter(log_dir=hps.model_dir)
         writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
 
-    dist.init_process_group(backend='gloo' if os.name == 'nt' else 'nccl', init_method='env://', world_size=n_gpus,
-                            rank=rank)
+    dist.init_process_group(
+        backend='gloo' if os.name == 'nt' else 'nccl',
+        init_method='env://', world_size=n_gpus,
+        rank=rank
+    )
     torch.manual_seed(hps.train.seed)
     torch.cuda.set_device(rank)
 

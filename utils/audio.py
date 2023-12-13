@@ -9,13 +9,13 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 from scipy.io import wavfile
-from typing import Literal, List, Dict, Union
+from typing import Literal, List, Union
 from modelscope.pipelines import Pipeline
 from whisper.model import Whisper
 
 
 
-def split_audi_channel(
+def split_audio_channel(
     audio_filepath: str,
     save_channel: Literal[0, 1, 2],
     spk_id: str

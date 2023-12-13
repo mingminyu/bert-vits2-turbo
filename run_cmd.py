@@ -6,8 +6,9 @@ from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 
 from utils.audio import denoise_audio, split_audio_vad_asr
+from utils.config import Vits2Config
 from tools.init_project import create_project_dirs
-from tools.preprocess_text import generate_training_samples
+from tools.gen_samples import generate_training_samples
 from tools.gen_bert import process_line
 from tools.train_ms import train
 
@@ -50,6 +51,8 @@ if __name__ == '__main__':
     parser.add_argument("--whisper_size", default="medium")
     args = parser.parse_args()
 
+    proj_cfg = Vits2Config(yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json")
+
     if args.stage == 1:
         create_project_dirs()
     elif args.stage == 2:
@@ -59,7 +62,7 @@ if __name__ == '__main__':
     elif args.stage == 4:
         stage4_split_audio(args.whisper_size)
     elif args.stage == 5:
-        generate_training_samples()
+        generate_training_samples(proj_cfg.gen_samples_cfg)
     elif args.stage == 6:
         from multiprocessing import Pool
         from tqdm import tqdm
@@ -73,5 +76,9 @@ if __name__ == '__main__':
                 pass
     elif args.stage == 7:
         train()
+    elif args.stage == 8:
+        ...
+    else:
+        raise ValueError("`--stage` parameter must be in 1~8, default 1.")
 
 

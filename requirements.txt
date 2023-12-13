@@ -8,3 +8,6 @@ librosa
 modelscope
 pandas
 scikit-learn
+pydantic
+pyyaml
+pypinyin

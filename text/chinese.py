@@ -51,17 +51,19 @@ rep_map = {
 
 tone_modifier = ToneSandhi()
 
-def replace_punctuation(text):
-    text = text.replace("嗯", "恩").replace("呣","母")
+
+def replace_punctuation(text: str) -> str:
+    text = text.replace("嗯", "恩").replace("呣", "母")
     pattern = re.compile('|'.join(re.escape(p) for p in rep_map.keys()))
 
     replaced_text = pattern.sub(lambda x: rep_map[x.group()], text)
 
-    replaced_text = re.sub(r'[^\u4e00-\u9fa5'+"".join(punctuation)+r']+', '', replaced_text)
+    replaced_text = re.sub(r'[^\u4e00-\u9fa5' + "".join(punctuation) + r']+', '', replaced_text)
 
     return replaced_text
 
-def g2p(text):
+
+def g2p(text: str):
     pattern = r'(?<=[{0}])\s*'.format(''.join(punctuation))
     sentences = [i for i in re.split(pattern, text) if i.strip()!='']
     phones, tones, word2ph = _g2p(sentences)
@@ -166,14 +168,15 @@ def _g2p(segments):
 
 
 
-def text_normalize(text):
+def text_normalize(text: str) -> str:
     numbers = re.findall(r'\d+(?:\.?\d+)?', text)
     for number in numbers:
         text = text.replace(number, cn2an.an2cn(number), 1)
+
     text = replace_punctuation(text)
     return text
 
 
-def get_bert_feature(text, word2ph):
-    from  text import chinese_bert
+def get_bert_feature(text: str, word2ph):
+    from text import chinese_bert
     return chinese_bert.get_bert_feature(text, word2ph)

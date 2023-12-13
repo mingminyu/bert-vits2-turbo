@@ -13,7 +13,7 @@ config_path = 'config/config.json'
 hps = util.get_hparams_from_file(config_path)
 
 
-def process_line(line):
+def process_line(line: str):
     _id, spk, language_str, text, phones, tone, word2ph = line.strip().split("|")
     phone = phones.split(" ")
     tone = [int(i) for i in tone.split(" ")]
