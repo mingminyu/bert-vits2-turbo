@@ -72,13 +72,10 @@ def download_pretrained_models(
 
     # 下载 Whisper 模型
     logger.info(f"下载模型: whisper {whisper_size}")
-    _ = whisper.load_model(
-        whisper_size, download_root="pretrained_models/whisper"
-    )
+
+    if not os.path.exists(f"pretrained_models/whisper/{whisper_size}.pt"):
+        _ = whisper.load_model(
+            whisper_size, download_root="pretrained_models/whisper"
+        )
     logger.info(f"下载完成: whisper {whisper_size}")
     logger.warning("下载完请重启下 notebook，释放掉机器资源")
-
-
-
-
-
