@@ -8,7 +8,6 @@ librosa
 modelscope
 pandas
 scikit-learn
-pydantic
 pyyaml
 wget
 openai-whisper
@@ -17,3 +16,4 @@ phonemizer
 amfm_decompy
 pypinyin
 sox
+pydantic==2.5.2
