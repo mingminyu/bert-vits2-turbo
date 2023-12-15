@@ -1,4 +1,4 @@
-fire
+cn2an
 scipy
 numpy
 tqdm
@@ -10,5 +10,10 @@ pandas
 scikit-learn
 pydantic
 pyyaml
-pypinyin
 wget
+openai-whisper
+Unidecode
+phonemizer
+amfm_decompy
+pypinyin
+sox
