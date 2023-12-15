@@ -202,7 +202,7 @@ class ToneSandhi:
     # merge "不" and the word behind it
     # if don't merge, "不" sometimes appears alone according to jieba, which may occur sandhi error
     @staticmethod
-    def _merge_bu(seg: List[List[str, str]]) -> List[List[str, str]]:
+    def _merge_bu(seg: List[List[str]]) -> List[List[str]]:
         new_seg = []
         last_word = ""
         for word, pos in seg:
@@ -224,7 +224,7 @@ class ToneSandhi:
     # input seg: [('听', 'v'), ('一', 'm'), ('听', 'v')]
     # output seg: [['听一听', 'v']]
     @staticmethod
-    def _merge_yi(seg: List[List[str, str]]) -> List[List[str, str]]:
+    def _merge_yi(seg: List[List[str]]) -> List[List[str]]:
         new_seg = []
         # function 1
         for i, (word, pos) in enumerate(seg):
@@ -249,8 +249,7 @@ class ToneSandhi:
         return new_seg
 
     # the first and the second words are all_tone_three
-    def _merge_continuous_three_tones(
-            self, seg: List[List[str, str]]) -> List[List[str, str]]:
+    def _merge_continuous_three_tones(self, seg: List[List[str]]) -> List[List[str]]:
         new_seg = []
         sub_finals_list = [
             lazy_pinyin(
@@ -280,9 +279,7 @@ class ToneSandhi:
         return len(word) == 2 and word[0] == word[1]
 
     # the last char of first word and the first char of second word is tone_three
-    def _merge_continuous_three_tones_2(
-            self, seg: List[List[str, str]]
-    ) -> List[List[str, str]]:
+    def _merge_continuous_three_tones_2(self, seg: List[List[str]]) -> List[List[str]]:
         new_seg = []
         sub_finals_list = [
             lazy_pinyin(
@@ -306,7 +303,7 @@ class ToneSandhi:
         return new_seg
 
     @staticmethod
-    def _merge_er(seg: List[List[str, str]]) -> List[List[str, str]]:
+    def _merge_er(seg: List[List[str]]) -> List[List[str]]:
         new_seg = []
         for i, (word, pos) in enumerate(seg):
             if i - 1 >= 0 and word == "儿" and seg[i - 1][0] != "#":
@@ -316,9 +313,7 @@ class ToneSandhi:
         return new_seg
 
     @staticmethod
-    def _merge_reduplication(
-            seg: List[List[str, str]]
-    ) -> List[List[str, str]]:
+    def _merge_reduplication(seg: List[List[str]]) -> List[List[str]]:
         new_seg = []
         for i, (word, pos) in enumerate(seg):
             if new_seg and word == new_seg[-1][0]:
@@ -327,8 +322,7 @@ class ToneSandhi:
                 new_seg.append([word, pos])
         return new_seg
 
-    def pre_merge_for_modify(
-            self, seg: List[List[str, str]]) -> List[List[str, str]]:
+    def pre_merge_for_modify(self, seg: List[List[str]]) -> List[List[str]]:
         seg = self._merge_bu(seg)
         try:
             seg = self._merge_yi(seg)

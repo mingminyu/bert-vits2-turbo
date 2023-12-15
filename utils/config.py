@@ -33,11 +33,16 @@ class GenBertConfig(BaseModel):
     use_multi_device: bool = Field(default=False, description="使用多卡推理")
 
 
+class EnvVar(BaseModel):
+    master_addr: str
+    master_port: int
+
+
 class TrainMSConfig(BaseModel):
     """train_ms 配置"""
-    env: Dict[str, Any]
-    base: Dict[str, Any]
-    model: str = Field(default="models", description="训练模型保存路径")
+    env: List[EnvVar]
+    base_model_dir: str
+    model_dir: str = Field(default="models", description="训练模型保存路径")
     config_path: str = Field(default="config/config.json", description="模型配置文件路径")
 
 

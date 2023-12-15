@@ -1,21 +1,15 @@
+import logging
 import os
-
 import torch
 import shutil
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from tqdm import tqdm
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import torch.multiprocessing as mp
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.cuda.amp import autocast, GradScaler
-from tqdm import tqdm
-# import logging
-# import json
-# import argparse
-# import itertools
-# import math
-# from torch import nn, optim
 
 from utils import commons, util
 from utils.data_utils import TextAudioSpeakerLoader, TextAudioSpeakerCollate, DistributedBucketSampler
@@ -23,8 +17,16 @@ from utils.models import SynthesizerTrn, MultiPeriodDiscriminator, DurationDiscr
 from utils.losses import generator_loss, discriminator_loss, feature_loss, kl_loss
 from utils.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from text.symbols import symbols
+from utils.config import Vits2Config
 
-# logging.getLogger('numba').setLevel(logging.WARNING)
+# import logging
+# import json
+# import argparse
+# import itertools
+# import math
+# from torch import nn, optim
+
+
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -32,23 +34,30 @@ torch.set_float32_matmul_precision('medium')
 global_step = 0
 
 
-def train():
-    """Assume Single Node Multi GPUs Training Only"""
-    assert torch.cuda.is_available(), "CPU training is not allowed."
+# def train():
+#     """Assume Single Node Multi GPUs Training Only"""
+#     assert torch.cuda.is_available(), "CPU training is not allowed."
+#
+#     n_gpus = torch.cuda.device_count()
+#     os.environ['MASTER_ADDR'] = 'localhost'
+#     os.environ['MASTER_PORT'] = '65280'
+#
+#     hps = util.get_hparams()
+#     if not hps.cont:
+#         shutil.copy('./pretrained_models/vits2_base_model/D_0.pth', './logs/OUTPUT_MODEL/D_0.pth')
+#         shutil.copy('./pretrained_models/vits2_base_model/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
+#         shutil.copy('./pretrained_models/vits2_base_model/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
+#     mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
 
-    n_gpus = torch.cuda.device_count()
+
+def run(config: Vits2Config, n_gpus: int = 1):
+    rank = 0
+    # setup environment variables
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '65280'
 
-    hps = util.get_hparams()
-    if not hps.cont:
-        shutil.copy('./pretrained_models/vits2_base_model/D_0.pth', './logs/OUTPUT_MODEL/D_0.pth')
-        shutil.copy('./pretrained_models/vits2_base_model/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
-        shutil.copy('./pretrained_models/vits2_base_model/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
-    mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
 
 
-def run(rank, n_gpus, hps):
     global global_step
     if rank == 0:
         logger = util.get_logger(hps.model_dir)

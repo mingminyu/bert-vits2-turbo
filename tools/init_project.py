@@ -79,3 +79,19 @@ def download_pretrained_models(
         )
     logger.info(f"下载完成: whisper {whisper_size}")
     logger.warning("下载完请重启下 notebook，释放掉机器资源")
+
+    # 下载底模
+    if not os.path.exists(f"pretrained_models/vits2_base_model"):
+        os.makedirs("pretrained_models/vits2_base_model")
+
+    vits_base_model_files = [
+        "https://huggingface.co/Erythrocyte/bert-vits2_base_model/resolve/main/DUR_0.pth",
+        "https://huggingface.co/Erythrocyte/bert-vits2_base_model/resolve/main/D_0.pth",
+        "https://huggingface.co/Erythrocyte/bert-vits2_base_model/resolve/main/G_0.pth",
+    ]
+    logger.info(f"下载 Vits2 底模")
+    _ = [
+        wget.download(url, "pretrained_models/vits2_base_model")
+        for url in vits_base_model_files
+    ]
+    logger.info(f"下载 Vits2 底模完成")

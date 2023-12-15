@@ -20,6 +20,7 @@ def load_checkpoint(checkpoint_path: str, model, optimizer=None, skip_optimizer=
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     iteration = checkpoint_dict['iteration']
     learning_rate = checkpoint_dict['learning_rate']
+
     if optimizer is not None and not skip_optimizer and checkpoint_dict['optimizer'] is not None:
         optimizer.load_state_dict(checkpoint_dict['optimizer'])
     elif optimizer is None and not skip_optimizer:
@@ -252,7 +253,7 @@ def check_git_hash(model_dir):
     if os.path.exists(path):
         saved_hash = open(path).read()
         if saved_hash != cur_hash:
-            logger.warn("git hash values are different. {}(saved) != {}(current)".format(
+            logger.warning("git hash values are different. {}(saved) != {}(current)".format(
                 saved_hash[:8], cur_hash[:8]))
     else:
         open(path, "w").write(cur_hash)

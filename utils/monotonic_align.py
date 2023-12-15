@@ -1,7 +1,9 @@
 import numba
+import logging
 from numpy import zeros, int32, float32
 from torch import from_numpy
 
+logging.getLogger('numba').setLevel(logging.INFO)
 
 
 @numba.jit(

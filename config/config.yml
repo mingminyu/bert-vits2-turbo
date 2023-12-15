@@ -1,8 +1,8 @@
 # 对音频数据批量进行重采样
 resample:
   sampling_rate: 44100
-  in_dir:
-  out_dir:
+  in_dir: ""
+  out_dir: ""
 
 # gen_samples 数据集预处理相关配置
 gen_samples:
@@ -26,5 +26,17 @@ gen_samples:
   clean: true
 
 gen_bert:
+  config_path: "config/config.json"
+  n_jobs: 2
+  device: cuda
+  use_multi_device: false
 
+train_ms:
+  # 环境变量
+  env:
+    master_addr: "localhost"
+    master_port: 10086
+
+  model_dir: "models"
+  config_path: "config/config.json"
 
