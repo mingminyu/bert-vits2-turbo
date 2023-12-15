@@ -15,5 +15,8 @@ Unidecode
 phonemizer
 amfm_decompy
 pypinyin
-sox
+torch==1.13.0
+tensorflow==2.13.0
+torchvision==0.14.0
+torchaudio==0.13.0
 pydantic==2.5.2
