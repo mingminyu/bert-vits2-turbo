@@ -1,6 +1,6 @@
 import os
-import whisper
 import wget
+import whisper
 from loguru import logger
 
 
@@ -78,7 +78,6 @@ def download_pretrained_models(
             whisper_size, download_root="pretrained_models/whisper"
         )
     logger.info(f"下载完成: whisper {whisper_size}")
-    logger.warning("下载完请重启下 notebook，释放掉机器资源")
 
     # 下载底模
     if not os.path.exists(f"pretrained_models/vits2_base_model"):
@@ -95,3 +94,4 @@ def download_pretrained_models(
         for url in vits_base_model_files
     ]
     logger.info(f"下载 Vits2 底模完成")
+    logger.warning("下载完请重启下 notebook，释放掉机器资源")
