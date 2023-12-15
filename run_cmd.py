@@ -11,7 +11,7 @@ from utils.config import Vits2Config
 from tools.init_project import create_project_dirs
 from tools.gen_samples import generate_training_samples
 from tools.gen_bert import process_line
-from tools.train_ms import train
+# from tools.train_ms import train
 logging.getLogger('numba').setLevel(logging.INFO)
 
 
@@ -58,32 +58,33 @@ if __name__ == '__main__':
     parser.add_argument("--whisper_size", default="medium", type=str)
     args = parser.parse_args()
 
-    # proj_cfg = Vits2Config(yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json")
+    proj_cfg = Vits2Config(yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json")
 
-    # if args.stage == 1:
-    #     create_project_dirs()
-    # elif args.stage == 2:
-    #     ...  # 分离双声道
-    # elif args.stage == 3:
-    #     stage3_denoise_audio()
-    # elif args.stage == 4:
-    #     stage4_split_audio(args.whisper_size)
-    # elif args.stage == 5:
-    #     generate_training_samples(proj_cfg.gen_samples_cfg)
-    # elif args.stage == 6:
-    #     from multiprocessing import Pool
-    #     from tqdm import tqdm
-    #
-    #     lines = []
-    #     with open("data/train/train_samples.csv", encoding='utf-8') as f:
-    #         lines.extend(f.readlines())
-    #
-    #     with Pool(processes=2) as pool:  # A100 40GB suitable config,if coom,please decrease the processess number.
-    #         for _ in tqdm(pool.imap_unordered(process_line, lines)):
-    #             pass
-    # elif args.stage == 7:
-    #     train()
-    # elif args.stage == 8:
-    #     ...
-    # else:
-    #     raise ValueError("`--stage` parameter must be in 1~8, default 1.")
+    if args.stage == 1:
+        create_project_dirs()
+    elif args.stage == 2:
+        ...  # 分离双声道
+    elif args.stage == 3:
+        stage3_denoise_audio()
+    elif args.stage == 4:
+        stage4_split_audio(args.whisper_size)
+    elif args.stage == 5:
+        generate_training_samples(proj_cfg.gen_samples_cfg)
+    elif args.stage == 6:
+        from multiprocessing import Pool
+        from tqdm import tqdm
+
+        lines = []
+        with open("data/train/train_samples.csv", encoding='utf-8') as f:
+            lines.extend(f.readlines())
+
+        with Pool(processes=2) as pool:  # A100 40GB suitable config,if coom,please decrease the processess number.
+            for _ in tqdm(pool.imap_unordered(process_line, lines)):
+                pass
+    elif args.stage == 7:
+        # train()
+        ...
+    elif args.stage == 8:
+        ...
+    else:
+        raise ValueError("`--stage` parameter must be in 1~8, default 1.")
