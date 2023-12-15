@@ -37,6 +37,7 @@ train_ms:
     master_addr: "localhost"
     master_port: 10086
 
-  model_dir: "models"
+  save_model_path: "models"
+  base_model_path: "pretrained_models/vits2_base_model"
   config_path: "config/config.json"
 

@@ -1,7 +1,7 @@
 import os
 import yaml
 import json
-from typing import Dict, List
+from typing import Dict, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -40,9 +40,9 @@ class EnvVar(BaseModel):
 
 class TrainMSConfig(BaseModel):
     """train_ms 配置"""
-    env: List[EnvVar]
-    base_model_dir: str
-    model_dir: str = Field(default="models", description="训练模型保存路径")
+    env: EnvVar
+    base_model_path: str
+    save_model_path: str = Field(default="models", description="训练模型保存路径")
     config_path: str = Field(default="config/config.json", description="模型配置文件路径")
 
 
@@ -93,15 +93,15 @@ class ModelConfig(BaseModel):
     n_heads: int = Field(default=2, description="")
     n_layers: int = Field(default=6, description="")
     kernel_size: int = Field(default=3, description="")
-    p_dropout: int = Field(default=0.1, description="")
+    p_dropout: float = Field(default=0.1, description="")
     resblock: int = Field(default="1", description="")
-    resblock_kernel_sizes: list[int] = Field(default=[3, 7, 11], description="")
-    resblock_dilation_sizes: list[int] = Field(
+    resblock_kernel_sizes: List[int] = Field(default=[3, 7, 11], description="")
+    resblock_dilation_sizes: List[List[int]] = Field(
         default=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
         description="")
-    upsample_rates: list[int] = Field(default=[8, 8, 2, 2, 2], description="")
+    upsample_rates: List[int] = Field(default=[8, 8, 2, 2, 2], description="")
     upsample_initial_channel: int = Field(default=512, description="")
-    upsample_kernel_sizes: list[int] = Field(default=[16, 16, 8, 2, 2], description="")
+    upsample_kernel_sizes: List[int] = Field(default=[16, 16, 8, 2, 2], description="")
     n_layers_q: int = Field(default=3, description="?")
     use_spectral_norm: bool = Field(default=False, description="?")
     gin_channels: int = Field(default=256, description="?")
@@ -139,7 +139,7 @@ class DataConfig(BaseModel):
     win_length: int = Field(default=2048, description="?")
     n_mel_channels: int = Field(default=128, description="?")
     mel_fmin: float = Field(default=0.0, description="?")
-    mel_fmax: float = Field(default=None, description="?")
+    mel_fmax: Union[float, None] = Field(default=None, description="?")
     add_blank: bool = Field(default=True, description="?")
     n_speakers: int = Field(default=1, description="角色数量")
     spk2id: Dict[str, int] = Field(default={}, description="角色ID映射表")
