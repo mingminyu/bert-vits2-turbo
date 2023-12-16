@@ -1,3 +1,8 @@
+torch==1.13.0
+tensorflow==2.13.0
+torchvision==0.14.0
+torchaudio==0.13.0
+pydantic==1.10.13
 cn2an
 scipy
 numpy
@@ -15,8 +20,5 @@ Unidecode
 phonemizer
 amfm_decompy
 pypinyin
-torch==1.13.0
-tensorflow==2.13.0
-torchvision==0.14.0
-torchaudio==0.13.0
-pydantic==1.10.13
+sentencepiece
+

@@ -27,7 +27,7 @@ def stage3_denoise_audio():
     logger.info(f"加载音频降噪模型: {denoise_model_name}")
     denoise_ans = pipeline(
         Tasks.acoustic_noise_suppression,
-        model=f'./pretrained_models/{denoise_model_name}'
+        model=f'./pretrained_models/damo/{denoise_model_name}'
     )
 
     denoise_audio_path = denoise_audio(
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument("--stage", '-s', default=1, type=int)
     parser.add_argument("--spk_id", '-sid', default="", type=str)
     parser.add_argument(
-        '--download_project_pretrained_models', '-dppd', action="store_true",
+        '--download_project_pretrained_models', '-dppm', action="store_true",
         default=False, help="是否下载预训练模型"
     )
     parser.add_argument("--whisper_size", '-ws', default="medium", type=str)

@@ -35,7 +35,7 @@ class GenBertConfig(BaseModel):
 
 class EnvVar(BaseModel):
     master_addr: str
-    master_port: int
+    master_port: str
 
 
 class TrainMSConfig(BaseModel):
@@ -133,7 +133,7 @@ class DataConfig(BaseModel):
     training_files: str = Field(default="data/train/train_samples.csv", description="训练数据集路径")
     validation_files: str = Field(default="data/train/val_samples.csv", description="验证数据集路径")
     max_wav_value: float = Field(default=32768.0, description="")
-    sampling_rating: int = Field(default=44100, description="采样率")
+    sampling_rate: int = Field(default=44100, description="采样率")
     filter_length: int = Field(default=2048, description="?")
     hop_length: int = Field(default=512, description="?")
     win_length: int = Field(default=2048, description="?")

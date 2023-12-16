@@ -100,7 +100,7 @@ def split_audio_asr(
         seg_duration = seg["end"] - seg["start"]
         seg_text = seg["text"]
         logger.info(
-            f"\ntime: {start_time}-{end_time}, duration: {seg_duration}"
+            f"\ntime: {round(start_time, 2)}-{round(end_time, 2)}, duration: {round(seg_duration, 2)}"
             f"\ntext: {seg_text}"
         )
         audio_seg = wav2[int(start_time * target_sr):int(end_time * target_sr)]
