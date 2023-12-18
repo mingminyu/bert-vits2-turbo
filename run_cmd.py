@@ -4,7 +4,6 @@ import argparse
 from loguru import logger
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
-import logging
 
 from utils.audio import denoise_audio, split_audio_vad_asr
 from utils.config import Vits2Config
@@ -12,7 +11,8 @@ from tools.init_project import create_project_dirs, download_pretrained_models
 from tools.gen_samples import generate_training_samples
 from tools.gen_bert import process_line
 from tqdm import tqdm
-# from tools.train_ms import train
+from tools.train_ms import run
+# import logging
 # logging.getLogger('numba').setLevel(logging.INFO)
 
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     elif args.stage == 6:
         stage6_generate_bert_files()
     elif args.stage == 7:
-        # train()
+        run(config=proj_cfg)
         ...
     elif args.stage == 8:
         ...
