@@ -2,13 +2,16 @@ import glob
 import os
 import torch
 import shutil
+import logging
 from tqdm import tqdm
+from typing import List, Union
 from torch import distributed as dist
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel as DDP, DistributedDataParallel
 from torch.cuda.amp import autocast, GradScaler
+from torch import optim
 
 from utils import commons, util
 from utils.data_utils import TextAudioSpeakerLoader, TextAudioSpeakerCollate, DistributedBucketSampler
@@ -18,44 +21,19 @@ from utils.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from text.symbols import symbols
 from utils.config import Vits2Config, DataConfig
 
-# import logging
-# import json
-# import argparse
-# import itertools
-# import math
-# from torch import nn, optim
-# import logging
-# import torch.multiprocessing as mp
-
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.set_float32_matmul_precision('medium')
-global_step = 0
-
-
-# def train():
-#     """Assume Single Node Multi GPUs Training Only"""
-#     assert torch.cuda.is_available(), "CPU training is not allowed."
-#
-#     n_gpus = torch.cuda.device_count()
-#     os.environ['MASTER_ADDR'] = 'localhost'
-#     os.environ['MASTER_PORT'] = '65280'
-#
-#     hps = util.get_hparams()
-#     if not hps.cont:
-#         shutil.copy('./pretrained_models/vits2_base_model/D_0.pth', './logs/OUTPUT_MODEL/D_0.pth')
-# #         shutil.copy('./pretrained_models/vits2_base_model/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
-# #         shutil.copy('./pretrained_models/vits2_base_model/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
-#     mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
 
 
 def run(config: Vits2Config, n_gpus: int = 1, cont=False):
+    rank, step = 0, 0
     train_ms_cfg = config.train_ms_cfg
     train_cfg = config.train_cfg
     data_cfg = config.data_cfg
     model_cfg = config.model_cfg
-    rank = 0
+
     # setup environment variables
     os.environ['MASTER_ADDR'] = train_ms_cfg.env.master_addr
     os.environ['MASTER_PORT'] = train_ms_cfg.env.master_port
@@ -70,11 +48,11 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     if not os.path.exists(os.path.join(train_ms_cfg.save_model_path, 'config.json')):
         shutil.copy(train_ms_cfg.config_path, os.path.join(train_ms_cfg.save_model_path, 'config.json'))
 
-
-    global global_step
-    # if rank == 0:
     logger = util.get_logger(train_ms_cfg.save_model_path)
-    # logger.info(hps)
+
+    logger.info(f"Model Config: \n{model_cfg}")
+    logger.info(f"Train Config: \n{train_cfg}")
+    logger.info(f"Data  Config: \n{data_cfg}")
     util.check_git_hash(train_ms_cfg.save_model_path)
     writer = SummaryWriter(log_dir=train_ms_cfg.save_model_path)
     writer_eval = SummaryWriter(log_dir=os.path.join(train_ms_cfg.save_model_path, "eval"))
@@ -83,7 +61,6 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         backend='gloo' if os.name == 'nt' else 'nccl',
         init_method='env://', world_size=n_gpus, rank=rank
     )
-    # torch.manual_seed(hps.train.seed)
     torch.manual_seed(train_cfg.seed)
     torch.cuda.set_device(rank)
 
@@ -105,7 +82,6 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         drop_last=False, collate_fn=collate_fn
     )
 
-    # if "use_noise_scaled_mas" in hps.model.keys() and hps.model.use_noise_scaled_mas == True:
     if model_cfg.use_noise_scaled_mas is True:
         print("Using noise scaled MAS for VITS2")
         mas_noise_scale_initial = 0.01
@@ -115,6 +91,7 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         mas_noise_scale_initial = 0.0
         noise_scale_delta = 0.0
 
+    net_dur_disc = None
     if model_cfg.use_duration_discriminator is True:
         print("Using duration discriminator for VITS2")
         net_dur_disc = DurationDiscriminator(
@@ -159,7 +136,8 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         net_d.parameters(),
         train_cfg.learning_rate,
         betas=train_cfg.betas,
-        eps=train_cfg.eps)
+        eps=train_cfg.eps
+    )
 
     if net_dur_disc is not None:
         optim_dur_disc = torch.optim.AdamW(
@@ -180,10 +158,10 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     if pretrain_dir is None:
         try:
             if net_dur_disc is not None:
-                print("=" * 50, "123", "=" * 50)
                 _, optim_dur_disc, _, epoch_str = util.load_checkpoint(
                     util.latest_checkpoint_path(train_ms_cfg.save_model_path, "DUR_*.pth"),
-                    net_dur_disc, optim_dur_disc, skip_optimizer=not cont)
+                    net_dur_disc, optim_dur_disc, skip_optimizer=not cont
+                )
 
             _, optim_g, _, epoch_str = util.load_checkpoint(
                 util.latest_checkpoint_path(train_ms_cfg.save_model_path, "G_*.pth"),
@@ -195,44 +173,76 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
             )
 
             epoch_str = max(epoch_str, 1)
-            global_step = (epoch_str - 1) * len(train_loader)
+            step = (epoch_str - 1) * len(train_loader)
         except Exception as e:
             print(e)
             epoch_str = 1
-            global_step = 0
+            step = 0
     else:
         _, _, _, epoch_str = util.load_checkpoint(
             util.latest_checkpoint_path(pretrain_dir, "G_*.pth"),
-            net_g, optim_g, True)
+            net_g, optim_g, True
+        )
         _, _, _, epoch_str = util.load_checkpoint(
             util.latest_checkpoint_path(pretrain_dir, "D_*.pth"),
-            net_d, optim_d, True)
+            net_d, optim_d, True
+        )
 
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(optim_g, gamma=train_cfg.lr_decay, last_epoch=epoch_str - 2)
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(optim_d, gamma=train_cfg.lr_decay, last_epoch=epoch_str - 2)
 
     if net_dur_disc is not None:
-        scheduler_dur_disc = torch.optim.lr_scheduler.ExponentialLR(optim_dur_disc, gamma=train_cfg.lr_decay,
-                                                                    last_epoch=epoch_str - 2)
+        scheduler_dur_disc = torch.optim.lr_scheduler.ExponentialLR(
+            optim_dur_disc, gamma=train_cfg.lr_decay, last_epoch=epoch_str - 2)
     else:
         scheduler_dur_disc = None
     scaler = GradScaler(enabled=train_cfg.fp16_run)
 
     for epoch in range(epoch_str, train_cfg.epochs + 1):
         if rank == 0:
-            train_and_evaluate(rank, epoch, config, [net_g, net_d, net_dur_disc], [optim_g, optim_d, optim_dur_disc],
-                               [scheduler_g, scheduler_d, scheduler_dur_disc], scaler, [train_loader, eval_loader],
-                               logger, [writer, writer_eval])
+            step = train_and_evaluate(
+                rank,
+                epoch,
+                config,
+                [net_g, net_d, net_dur_disc],
+                [optim_g, optim_d, optim_dur_disc],
+                [scheduler_g, scheduler_d, scheduler_dur_disc],
+                scaler,
+                [train_loader, eval_loader], logger,
+                [writer, writer_eval],
+                step
+            )
         else:
-            train_and_evaluate(rank, epoch, config, [net_g, net_d, net_dur_disc], [optim_g, optim_d, optim_dur_disc],
-                               [scheduler_g, scheduler_d, scheduler_dur_disc], scaler, [train_loader, None], None, None)
+            step = train_and_evaluate(
+                rank, epoch, config,
+                [net_g, net_d, net_dur_disc],
+                [optim_g, optim_d, optim_dur_disc],
+                [scheduler_g, scheduler_d, scheduler_dur_disc],
+                scaler,
+                [train_loader, None], None, None,
+                step
+            )
+
         scheduler_g.step()
         scheduler_d.step()
+
         if net_dur_disc is not None:
             scheduler_dur_disc.step()
 
 
-def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, loaders, logger, writers):
+def train_and_evaluate(
+        rank: int,
+        epoch: int,
+        config: Vits2Config,
+        nets: List[Union[SynthesizerTrn, MultiPeriodDiscriminator, DistributedDataParallel]],
+        optims: List[torch.optim.AdamW],
+        schedulers: List[optim.lr_scheduler.ExponentialLR],
+        scaler: GradScaler,
+        loaders: List[Union[DataLoader, None]],
+        logger: Union[logging.Logger, None],
+        writers: Union[List[SummaryWriter], None],
+        step: int
+) -> int:
     net_g, net_d, net_dur_disc = nets
     optim_g, optim_d, optim_dur_disc = optims
     scheduler_g, scheduler_d, scheduler_dur_disc = schedulers
@@ -245,7 +255,6 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
     data_cfg = config.data_cfg
 
     train_loader.batch_sampler.set_epoch(epoch)
-    global global_step
 
     net_g.train()
     net_d.train()
@@ -255,8 +264,9 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
             enumerate(train_loader)):
 
         if net_g.module.use_noise_scaled_mas:
-            current_mas_noise_scale = net_g.module.mas_noise_scale_initial - net_g.module.noise_scale_delta * global_step
+            current_mas_noise_scale = net_g.module.mas_noise_scale_initial - net_g.module.noise_scale_delta * step
             net_g.module.current_mas_noise_scale = max(current_mas_noise_scale, 0.0)
+
         x, x_lengths = x.cuda(rank, non_blocking=True), x_lengths.cuda(rank, non_blocking=True)
         spec, spec_lengths = spec.cuda(rank, non_blocking=True), spec_lengths.cuda(rank, non_blocking=True)
         y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(rank, non_blocking=True)
@@ -295,6 +305,7 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
             with autocast(enabled=False):
                 loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(y_d_hat_r, y_d_hat_g)
                 loss_disc_all = loss_disc
+
             if net_dur_disc is not None:
                 y_dur_hat_r, y_dur_hat_g = net_dur_disc(hidden_x.detach(), x_mask.detach(), logw.detach(),
                                                         logw_.detach())
@@ -339,19 +350,20 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
         scaler.step(optim_g)
         scaler.update()
 
-        if global_step % train_cfg.log_interval == 0:
+        if step % train_cfg.log_interval == 0:
             lr = optim_g.param_groups[0]['lr']
             losses = [loss_disc, loss_gen, loss_fm, loss_mel, loss_dur, loss_kl]
             logger.info('Train Epoch: {} [{:.0f}%]'.format(
                 epoch, 100. * batch_idx / len(train_loader))
             )
-            logger.info([x.item() for x in losses] + [global_step, lr])
+            logger.info([x.item() for x in losses] + [step, lr])
 
             scalar_dict = {
                 "loss/g/total": loss_gen_all, "loss/d/total": loss_disc_all, "learning_rate": lr,
                 "grad_norm_d": grad_norm_d, "grad_norm_g": grad_norm_g}
             scalar_dict.update(
-                {"loss/g/fm": loss_fm, "loss/g/mel": loss_mel, "loss/g/dur": loss_dur, "loss/g/kl": loss_kl})
+                {"loss/g/fm": loss_fm, "loss/g/mel": loss_mel, "loss/g/dur": loss_dur, "loss/g/kl": loss_kl}
+            )
             scalar_dict.update({"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)})
             scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
             scalar_dict.update({"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)})
@@ -364,34 +376,52 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
             }
             util.summarize(
                 writer=writer,
-                global_step=global_step,
+                global_step=step,
                 images=image_dict,
                 scalars=scalar_dict)
 
-        if global_step % train_cfg.eval_interval == 0:
-            evaluate(data_cfg, net_g, eval_loader, writer_eval)
-            util.save_checkpoint(net_g, optim_g, train_cfg.learning_rate, epoch,
-                                  os.path.join(train_ms_cfg.save_model_path, "G_{}.pth".format(global_step)))
-            util.save_checkpoint(net_d, optim_d, train_cfg.learning_rate, epoch,
-                                  os.path.join(train_ms_cfg.save_model_path, "D_{}.pth".format(global_step)))
+        if step % train_cfg.eval_interval == 0:
+            evaluate(data_cfg, net_g, eval_loader, writer_eval, step)
+            util.save_checkpoint(
+                net_g, optim_g, train_cfg.learning_rate, epoch,
+                os.path.join(train_ms_cfg.save_model_path, f"G_{step}.pth")
+            )
+            util.save_checkpoint(
+                net_d, optim_d, train_cfg.learning_rate, epoch,
+                os.path.join(train_ms_cfg.save_model_path, f"D_{step}.pth")
+            )
+
             if net_dur_disc is not None:
-                util.save_checkpoint(net_dur_disc, optim_dur_disc, train_cfg.learning_rate, epoch,
-                                      os.path.join(train_ms_cfg.save_model_path, "DUR_{}.pth".format(global_step)))
+                util.save_checkpoint(
+                    net_dur_disc, optim_dur_disc, train_cfg.learning_rate, epoch,
+                    os.path.join(train_ms_cfg.save_model_path, f"DUR_{step}.pth")
+                )
             # keep_ckpts = getattr(hps.train, 'keep_ckpts', 5)
             keep_ckpts = train_cfg.keep_ckpts
+
             if keep_ckpts > 0:
-                util.clean_checkpoints(path_to_models=train_ms_cfg.save_model_path, n_ckpts_to_keep=keep_ckpts,
-                                       sort_by_time=True)
+                util.clean_checkpoints(
+                    path_to_models=train_ms_cfg.save_model_path, n_ckpts_to_keep=keep_ckpts,
+                    sort_by_time=True
+                )
 
-    global_step += 1
+        step += 1
+
     logger.info('====> Epoch: {}'.format(epoch))
+    return step
 
 
-def evaluate(data_cfg: DataConfig, generator, eval_loader, writer_eval):
+def evaluate(
+        data_cfg: DataConfig,
+        generator: torch.nn.parallel.distributed.DistributedDataParallel,
+        eval_loader: DataLoader,
+        writer_eval: SummaryWriter,
+        step: int
+) -> None:
     generator.eval()
-    image_dict = {}
-    audio_dict = {}
+    image_dict, audio_dict = {}, {}
     print("Evaluating ...")
+    print(type(generator))
 
     with torch.no_grad():
         for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, tone, language, bert) in enumerate(
@@ -404,8 +434,10 @@ def evaluate(data_cfg: DataConfig, generator, eval_loader, writer_eval):
             tone = tone.cuda()
             language = language.cuda()
             for use_sdp in [True, False]:
-                y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, tone, language, bert, y=spec,
-                                                               max_len=1000, sdp_ratio=0.0 if not use_sdp else 1.0)
+                y_hat, attn, mask, *_ = generator.module.infer(
+                    x, x_lengths, speakers, tone, language, bert, y=spec,
+                    max_len=1000, sdp_ratio=0.0 if not use_sdp else 1.0
+                )
                 y_hat_lengths = mask.sum([1, 2]).long() * data_cfg.hop_length
 
                 mel = spec_to_mel_torch(
@@ -436,10 +468,9 @@ def evaluate(data_cfg: DataConfig, generator, eval_loader, writer_eval):
 
     util.summarize(
         writer=writer_eval,
-        global_step=global_step,
+        global_step=step,
         images=image_dict,
         audios=audio_dict,
         audio_sampling_rate=data_cfg.sampling_rate
     )
     generator.train()
-

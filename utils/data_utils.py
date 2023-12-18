@@ -3,6 +3,7 @@ import random
 import torch
 import torch.utils.data
 import torchaudio
+from typing import List
 from utils import commons
 from utils.mel_processing import spectrogram_torch, mel_spectrogram_torch, spec_to_mel_torch
 from utils.util import load_wav_to_torch, load_filepaths_and_text
@@ -238,7 +239,15 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
     Ex) boundaries = [b1, b2, b3] -> any x s.t. length(x) <= b1 or length(x) > b3 are discarded.
     """
 
-    def __init__(self, dataset, batch_size, boundaries, num_replicas=None, rank=None, shuffle=True):
+    def __init__(
+            self,
+            dataset,
+            batch_size: int,
+            boundaries: List[int],
+            num_replicas: int = None,
+            rank: int = None,
+            shuffle: bool = True
+    ):
         super().__init__(dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle)
         self.lengths = dataset.lengths
         self.batch_size = batch_size
