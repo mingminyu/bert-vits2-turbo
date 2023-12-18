@@ -11,8 +11,9 @@ from utils.config import Vits2Config
 from tools.init_project import create_project_dirs, download_pretrained_models
 from tools.gen_samples import generate_training_samples
 from tools.gen_bert import process_line
+from tqdm import tqdm
 # from tools.train_ms import train
-logging.getLogger('numba').setLevel(logging.INFO)
+# logging.getLogger('numba').setLevel(logging.INFO)
 
 
 def step1_init_project(download_project_pretrained_models: bool = False):
@@ -54,6 +55,22 @@ def stage4_split_audio(whisper_model_size: str = "medium"):
     )
 
 
+def stage5_generate_training_samples():
+    """生成训练样本"""
+    generate_training_samples(proj_cfg.gen_samples_cfg)
+
+
+def stage6_generate_bert_files():
+    """生成 BERT 训练文件"""
+    lines = []
+    with open(proj_cfg.gen_samples_cfg.train_path, encoding='utf-8') as f:
+        lines.extend(f.readlines())
+    
+    for line in tqdm(lines):
+        process_line(line, proj_cfg.data_cfg.add_blank)
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", '-s', default=1, type=int)
@@ -76,18 +93,9 @@ if __name__ == '__main__':
     elif args.stage == 4:
         stage4_split_audio(args.whisper_size)
     elif args.stage == 5:
-        generate_training_samples(proj_cfg.gen_samples_cfg)
+        stage5_generate_training_samples()
     elif args.stage == 6:
-        from multiprocessing import Pool
-        from tqdm import tqdm
-
-        lines = []
-        with open("data/train/train_samples.csv", encoding='utf-8') as f:
-            lines.extend(f.readlines())
-
-        with Pool(processes=2) as pool:  # A100 40GB suitable config,if coom,please decrease the processess number.
-            for _ in tqdm(pool.imap_unordered(process_line, lines)):
-                pass
+        stage6_generate_bert_files()
     elif args.stage == 7:
         # train()
         ...

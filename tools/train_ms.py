@@ -99,12 +99,12 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     # if "use_noise_scaled_mas" in hps.model.keys() and hps.model.use_noise_scaled_mas == True:
     if model_cfg.use_noise_scaled_mas is True:
         print("Using noise scaled MAS for VITS2")
-        use_noise_scaled_mas = True
+        # use_noise_scaled_mas = True
         mas_noise_scale_initial = 0.01
         noise_scale_delta = 2e-6
     else:
         print("Using normal MAS for VITS1")
-        use_noise_scaled_mas = False
+        # use_noise_scaled_mas = False
         mas_noise_scale_initial = 0.0
         noise_scale_delta = 0.0
 
@@ -156,6 +156,7 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         train_cfg.learning_rate,
         betas=train_cfg.betas,
         eps=train_cfg.eps)
+
     if net_dur_disc is not None:
         optim_dur_disc = torch.optim.AdamW(
             net_dur_disc.parameters(),
@@ -164,6 +165,7 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
             eps=train_cfg.eps)
     else:
         optim_dur_disc = None
+
     net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
     net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
     if net_dur_disc is not None:

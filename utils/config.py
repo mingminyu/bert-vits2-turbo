@@ -48,7 +48,7 @@ class TrainMSConfig(BaseModel):
 
 class Vits2Config:
     __slots__ = (
-        'resample_cfg', 'gen_samples_cfg', 'bert_gen_cfg', 'train_ms_cfg',
+        'resample_cfg', 'gen_samples_cfg', 'gen_bert_cfg', 'train_ms_cfg',
         'train_cfg', 'model_cfg', 'data_cfg',
     )
 
@@ -72,7 +72,7 @@ class Vits2Config:
         # 项目配置信息
         self.resample_cfg = ResampleConfig(**yaml_cfg["resample"])
         self.gen_samples_cfg = GenSamplesConfig(**yaml_cfg["gen_samples"])
-        self.bert_gen_cfg = GenBertConfig(**yaml_cfg["gen_bert"])
+        self.gen_bert_cfg = GenBertConfig(**yaml_cfg["gen_bert"])
         self.train_ms_cfg = TrainMSConfig(**yaml_cfg["train_ms"])
 
         # 模型训练配置
