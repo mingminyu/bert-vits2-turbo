@@ -1,5 +1,7 @@
+import glob
 import os
 import torch
+import shutil
 from tqdm import tqdm
 from torch import distributed as dist
 from torch.nn import functional as F
@@ -22,7 +24,6 @@ from utils.config import Vits2Config, DataConfig
 # import itertools
 # import math
 # from torch import nn, optim
-# import shutil
 # import logging
 # import torch.multiprocessing as mp
 
@@ -44,8 +45,8 @@ global_step = 0
 #     hps = util.get_hparams()
 #     if not hps.cont:
 #         shutil.copy('./pretrained_models/vits2_base_model/D_0.pth', './logs/OUTPUT_MODEL/D_0.pth')
-#         shutil.copy('./pretrained_models/vits2_base_model/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
-#         shutil.copy('./pretrained_models/vits2_base_model/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
+# #         shutil.copy('./pretrained_models/vits2_base_model/G_0.pth', './logs/OUTPUT_MODEL/G_0.pth')
+# #         shutil.copy('./pretrained_models/vits2_base_model/DUR_0.pth', './logs/OUTPUT_MODEL/DUR_0.pth')
 #     mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
 
 
@@ -58,6 +59,12 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     # setup environment variables
     os.environ['MASTER_ADDR'] = train_ms_cfg.env.master_addr
     os.environ['MASTER_PORT'] = train_ms_cfg.env.master_port
+
+    if not cont:
+        _ = [
+            shutil.copy(file, train_ms_cfg.save_model_path)
+            for file in glob.glob(f"{train_ms_cfg.base_model_path}/*.pth")
+        ]
 
 
     global global_step
@@ -109,7 +116,7 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         noise_scale_delta = 0.0
 
     # if "use_duration_discriminator" in hps.model.keys() and hps.model.use_duration_discriminator == True:
-    if train_cfg.use_duration_discriminator is True:
+    if model_cfg.use_duration_discriminator is True:
         print("Using duration discriminator for VITS2")
         use_duration_discriminator = True
         net_dur_disc = DurationDiscriminator(
@@ -135,7 +142,7 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
         n_speakers=data_cfg.n_speakers,
         mas_noise_scale_initial=mas_noise_scale_initial,
         noise_scale_delta=noise_scale_delta,
-        **model_cfg
+        **model_cfg.dict()
     ).cuda(rank)
 
     # freeze_enc = getattr(hps.model, "freeze_enc", False)

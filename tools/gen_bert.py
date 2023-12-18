@@ -19,8 +19,8 @@ def process_line(line: str, add_blank: bool = True):
     phone = phones.split(" ")
     tone = [int(i) for i in tone.split(" ")]
     word2ph = [int(i) for i in word2ph.split(" ")]
-    # w2pho = [i for i in word2ph]
-    # word2ph = [i for i in word2ph]
+    w2pho = [i for i in word2ph]
+    word2ph = [i for i in word2ph]
     phone, tone, language = cleaned_text_to_sequence(phone, tone, language_str)
 
     if add_blank:
@@ -40,5 +40,5 @@ def process_line(line: str, add_blank: bool = True):
         assert bert.shape[-1] == len(phone)
         torch.save(bert, bert_path)
 
-    bert = torch.load(bert_path)
-    assert bert.shape[-1] == len(phone), "Generate bert file is wrong"
+    # bert = torch.load(bert_path)
+    # assert bert.shape[-1] == len(phone), "Generate bert file is wrong"

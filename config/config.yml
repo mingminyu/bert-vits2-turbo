@@ -35,7 +35,7 @@ train_ms:
   # 环境变量
   env:
     master_addr: "localhost"
-    master_port: 10086
+    master_port: "10086"
 
   save_model_path: "models"
   base_model_path: "pretrained_models/vits2_base_model"

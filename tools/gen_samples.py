@@ -44,7 +44,7 @@ def generate_training_samples(
 
     # 在 BERT-VITS2 1.0 版本中，源代码直接使用全部数据作为训练集，其实不太合理
     # 在 BERT-VITS2 2.x 版本中，这个问题得到的修正
-    df_train.to_csv(gen_samples_config.train_path, index=False, sep="|", header=False, encoding='utf8')
+    df[save_cols].to_csv(gen_samples_config.train_path, index=False, sep="|", header=False, encoding='utf8')
     df_val.to_csv(gen_samples_config.val_path, index=False, sep="|", header=False, encoding='utf8')
 
     with open(gen_samples_config.config_path, 'r', encoding='utf8') as f:

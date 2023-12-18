@@ -16,11 +16,14 @@ from tools.train_ms import run
 # logging.getLogger('numba').setLevel(logging.INFO)
 
 
-def step1_init_project(download_project_pretrained_models: bool = False):
+def step1_init_project(
+    download_project_pretrained_models: bool = False,
+    whisper_size: str = "medium"
+):
     create_project_dirs()
 
     if download_project_pretrained_models:
-        download_pretrained_models()
+        download_pretrained_models(whisper_size)
 
 
 def stage3_denoise_audio():
@@ -85,7 +88,7 @@ if __name__ == '__main__':
     proj_cfg = Vits2Config(yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json")
 
     if args.stage == 1:
-        step1_init_project(args.download_project_pretrained_models)
+        step1_init_project(args.download_project_pretrained_models, args.whisper_size)
     elif args.stage == 2:
         ...  # 分离双声道
     elif args.stage == 3:
@@ -98,7 +101,6 @@ if __name__ == '__main__':
         stage6_generate_bert_files()
     elif args.stage == 7:
         run(config=proj_cfg)
-        ...
     elif args.stage == 8:
         ...
     else:
