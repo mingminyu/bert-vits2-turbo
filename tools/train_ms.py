@@ -245,10 +245,13 @@ def train_and_evaluate(
 ) -> int:
     net_g, net_d, net_dur_disc = nets
     optim_g, optim_d, optim_dur_disc = optims
-    scheduler_g, scheduler_d, scheduler_dur_disc = schedulers
+    # scheduler_g, scheduler_d, scheduler_dur_disc = schedulers
     train_loader, eval_loader = loaders
+
     if writers is not None:
         writer, writer_eval = writers
+    else:
+        writer, writer_eval = None, None
 
     train_ms_cfg = config.train_ms_cfg
     train_cfg = config.train_cfg
@@ -260,8 +263,9 @@ def train_and_evaluate(
     net_d.train()
     if net_dur_disc is not None:
         net_dur_disc.train()
-    for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, tone, language, bert) in tqdm(
-            enumerate(train_loader)):
+
+    for batch_idx, batch_data in tqdm(enumerate(train_loader)):
+        x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, tone, language, bert = batch_data
 
         if net_g.module.use_noise_scaled_mas:
             current_mas_noise_scale = net_g.module.mas_noise_scale_initial - net_g.module.noise_scale_delta * step
@@ -317,7 +321,8 @@ def train_and_evaluate(
                 optim_dur_disc.zero_grad()
                 scaler.scale(loss_dur_disc_all).backward()
                 scaler.unscale_(optim_dur_disc)
-                grad_norm_dur_disc = commons.clip_grad_value_(net_dur_disc.parameters(), None)
+                # grad_norm_dur_disc is never used!
+                _ = commons.clip_grad_value_(net_dur_disc.parameters(), None)
                 scaler.step(optim_dur_disc)
 
         optim_d.zero_grad()
@@ -421,11 +426,10 @@ def evaluate(
     generator.eval()
     image_dict, audio_dict = {}, {}
     print("Evaluating ...")
-    print(type(generator))
 
     with torch.no_grad():
-        for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, tone, language, bert) in enumerate(
-                eval_loader):
+        for batch_idx, batch_data in enumerate(eval_loader):
+            x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, tone, language, bert = batch_data
             x, x_lengths = x.cuda(), x_lengths.cuda()
             spec, spec_lengths = spec.cuda(), spec_lengths.cuda()
             y, y_lengths = y.cuda(), y_lengths.cuda()
@@ -433,6 +437,7 @@ def evaluate(
             bert = bert.cuda()
             tone = tone.cuda()
             language = language.cuda()
+
             for use_sdp in [True, False]:
                 y_hat, attn, mask, *_ = generator.module.infer(
                     x, x_lengths, speakers, tone, language, bert, y=spec,

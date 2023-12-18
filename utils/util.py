@@ -6,16 +6,21 @@ import torch
 import logging
 import subprocess
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Dict
 from scipy.io import wavfile
-# import argparse
+from torch.utils.tensorboard import SummaryWriter
 
 MATPLOTLIB_FLAG = False
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
 
-def load_checkpoint(checkpoint_path: str, model, optimizer=None, skip_optimizer=False):
+def load_checkpoint(
+        checkpoint_path: str,
+        model,
+        optimizer: torch.optim.Optimizer = None,
+        skip_optimizer=False
+) -> Tuple:
     assert os.path.isfile(checkpoint_path)
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     iteration = checkpoint_dict['iteration']
@@ -23,6 +28,7 @@ def load_checkpoint(checkpoint_path: str, model, optimizer=None, skip_optimizer=
 
     if optimizer is not None and not skip_optimizer and checkpoint_dict['optimizer'] is not None:
         optimizer.load_state_dict(checkpoint_dict['optimizer'])
+    # TODO: 下面这段代码根本不会执行，
     elif optimizer is None and not skip_optimizer:
         new_opt_dict = optimizer.state_dict()
         new_opt_dict_params = new_opt_dict['param_groups'][0]['params']
@@ -51,16 +57,12 @@ def load_checkpoint(checkpoint_path: str, model, optimizer=None, skip_optimizer=
     else:
         model.load_state_dict(new_state_dict, strict=False)
 
-    print("load ")
-    logger.info("Loaded checkpoint '{}' (iteration {})".format(
-        checkpoint_path, iteration))
+    logger.info(f"Loaded checkpoint '{checkpoint_path}' (iteration {iteration})")
     return model, optimizer, learning_rate, iteration
 
 
 def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
-    logger.info(
-        f"Saving model and optimizer state at iteration {iteration} to {checkpoint_path}"
-    )
+    logger.info(f"Saving model and optimizer state at iteration {iteration} to {checkpoint_path}")
 
     if hasattr(model, 'module'):
         state_dict = model.module.state_dict()
@@ -76,13 +78,36 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
     )
 
 
-def summarize(writer, global_step, scalars={}, histograms={}, images={}, audios={}, audio_sampling_rate=22050):
+def summarize(
+        writer: SummaryWriter,
+        global_step: int,
+        scalars: Dict = None,
+        histograms: Dict = None,
+        images: Dict = None,
+        audios: Dict = None,
+        audio_sampling_rate: int = 22050
+):
+    if scalars is None:
+        scalars = {}
+
+    if histograms is None:
+        histograms = {}
+
+    if images is None:
+        images = {}
+
+    if audios is None:
+        audios = {}
+
     for k, v in scalars.items():
         writer.add_scalar(k, v, global_step)
+
     for k, v in histograms.items():
         writer.add_histogram(k, v, global_step)
+
     for k, v in images.items():
         writer.add_image(k, v, global_step, dataformats='HWC')
+
     for k, v in audios.items():
         writer.add_audio(k, v, global_step, audio_sampling_rate)
 
