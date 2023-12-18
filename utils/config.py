@@ -94,7 +94,7 @@ class ModelConfig(BaseModel):
     n_layers: int = Field(default=6, description="")
     kernel_size: int = Field(default=3, description="")
     p_dropout: float = Field(default=0.1, description="")
-    resblock: int = Field(default="1", description="")
+    resblock: str = Field(default="1", description="")
     resblock_kernel_sizes: List[int] = Field(default=[3, 7, 11], description="")
     resblock_dilation_sizes: List[List[int]] = Field(
         default=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],

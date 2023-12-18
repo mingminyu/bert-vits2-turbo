@@ -49,6 +49,7 @@ def download_pretrained_models(
     _ = [
         wget.download(url, "pretrained_models/chinese-roberta-wwm-ext-large")
         for url in roberta_model_urls
+        if not os.path.exists(f"pretrained_models/chinese-roberta-wwm-ext-large/{os.path.basename(url)}")
     ]
     logger.info("下载完成: chinese-roberta-wwm-ext-large")
 
@@ -92,6 +93,7 @@ def download_pretrained_models(
     _ = [
         wget.download(url, "pretrained_models/vits2_base_model")
         for url in vits_base_model_files
+        if not os.path.exists(f"pretrained_models/chinese-roberta-wwm-ext-large/{os.path.basename(url)}")
     ]
     logger.info(f"下载 Vits2 底模完成")
     logger.warning("下载完请重启下 notebook，释放掉机器资源")

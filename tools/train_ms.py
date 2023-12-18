@@ -62,9 +62,13 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
 
     if not cont:
         _ = [
-            shutil.copy(file, train_ms_cfg.save_model_path)
+            shutil.copy(file, os.path.join(train_ms_cfg.save_model_path, os.path.basename(file)))
             for file in glob.glob(f"{train_ms_cfg.base_model_path}/*.pth")
+            if not os.path.exists(os.path.join(train_ms_cfg.save_model_path, os.path.basename(file)))
         ]
+
+    if not os.path.exists(os.path.join(train_ms_cfg.save_model_path, 'config.json')):
+        shutil.copy(train_ms_cfg.config_path, os.path.join(train_ms_cfg.save_model_path, 'config.json'))
 
 
     global global_step
@@ -95,8 +99,6 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     collate_fn = TextAudioSpeakerCollate()
     train_loader = DataLoader(train_dataset, num_workers=2, shuffle=False, pin_memory=True,
                               collate_fn=collate_fn, batch_sampler=train_sampler)
-    # if rank == 0:
-        # eval_dataset = TextAudioSpeakerLoader(hps.data.validation_files, hps.data)
     eval_dataset = TextAudioSpeakerLoader(data_cfg.validation_files, data_cfg)
     eval_loader = DataLoader(
         eval_dataset, num_workers=0, shuffle=False, batch_size=1, pin_memory=True,
@@ -106,19 +108,15 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     # if "use_noise_scaled_mas" in hps.model.keys() and hps.model.use_noise_scaled_mas == True:
     if model_cfg.use_noise_scaled_mas is True:
         print("Using noise scaled MAS for VITS2")
-        # use_noise_scaled_mas = True
         mas_noise_scale_initial = 0.01
         noise_scale_delta = 2e-6
     else:
         print("Using normal MAS for VITS1")
-        # use_noise_scaled_mas = False
         mas_noise_scale_initial = 0.0
         noise_scale_delta = 0.0
 
-    # if "use_duration_discriminator" in hps.model.keys() and hps.model.use_duration_discriminator == True:
     if model_cfg.use_duration_discriminator is True:
         print("Using duration discriminator for VITS2")
-        use_duration_discriminator = True
         net_dur_disc = DurationDiscriminator(
             model_cfg.hidden_channels,
             model_cfg.hidden_channels,
@@ -130,11 +128,10 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     if model_cfg.use_spk_conditioned_encoder is True:
         if data_cfg.n_speakers == 0:
             raise ValueError("n_speakers must be > 0 when using spk conditioned encoder to train multi-speaker model")
-        # use_spk_conditioned_encoder = True
     else:
         print("Using normal encoder for VITS1")
-        # use_spk_conditioned_encoder = False
 
+    # TODO: 下面这一行代码会打印出 5 行 [256, 2]，后续研究
     net_g = SynthesizerTrn(
         len(symbols),
         data_cfg.filter_length // 2 + 1,
@@ -175,6 +172,7 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
 
     net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
     net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
+
     if net_dur_disc is not None:
         net_dur_disc = DDP(net_dur_disc, device_ids=[rank], find_unused_parameters=True)
 
@@ -182,15 +180,19 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
     if pretrain_dir is None:
         try:
             if net_dur_disc is not None:
+                print("=" * 50, "123", "=" * 50)
                 _, optim_dur_disc, _, epoch_str = util.load_checkpoint(
-                    util.latest_checkpoint_path(train_ms_cfg.save_model_path, "DUR_*.pth"), net_dur_disc, optim_dur_disc,
-                    skip_optimizer=not cont)
-            _, optim_g, _, epoch_str = util.load_checkpoint(util.latest_checkpoint_path(train_ms_cfg.save_model_path, "G_*.pth"),
-                                                             net_g,
-                                                             optim_g, skip_optimizer=not cont)
-            _, optim_d, _, epoch_str = util.load_checkpoint(util.latest_checkpoint_path(train_ms_cfg.save_model_path, "D_*.pth"),
-                                                             net_d,
-                                                             optim_d, skip_optimizer=not cont)
+                    util.latest_checkpoint_path(train_ms_cfg.save_model_path, "DUR_*.pth"),
+                    net_dur_disc, optim_dur_disc, skip_optimizer=not cont)
+
+            _, optim_g, _, epoch_str = util.load_checkpoint(
+                util.latest_checkpoint_path(train_ms_cfg.save_model_path, "G_*.pth"),
+                net_g, optim_g, skip_optimizer=not cont
+            )
+            _, optim_d, _, epoch_str = util.load_checkpoint(
+                util.latest_checkpoint_path(train_ms_cfg.save_model_path, "D_*.pth"),
+                net_d, optim_d, skip_optimizer=not cont
+            )
 
             epoch_str = max(epoch_str, 1)
             global_step = (epoch_str - 1) * len(train_loader)
@@ -199,10 +201,12 @@ def run(config: Vits2Config, n_gpus: int = 1, cont=False):
             epoch_str = 1
             global_step = 0
     else:
-        _, _, _, epoch_str = util.load_checkpoint(util.latest_checkpoint_path(pretrain_dir, "G_*.pth"), net_g,
-                                                   optim_g, True)
-        _, _, _, epoch_str = util.load_checkpoint(util.latest_checkpoint_path(pretrain_dir, "D_*.pth"), net_d,
-                                                   optim_d, True)
+        _, _, _, epoch_str = util.load_checkpoint(
+            util.latest_checkpoint_path(pretrain_dir, "G_*.pth"),
+            net_g, optim_g, True)
+        _, _, _, epoch_str = util.load_checkpoint(
+            util.latest_checkpoint_path(pretrain_dir, "D_*.pth"),
+            net_d, optim_d, True)
 
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(optim_g, gamma=train_cfg.lr_decay, last_epoch=epoch_str - 2)
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(optim_d, gamma=train_cfg.lr_decay, last_epoch=epoch_str - 2)
@@ -239,7 +243,6 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
     train_ms_cfg = config.train_ms_cfg
     train_cfg = config.train_cfg
     data_cfg = config.data_cfg
-    model_cfg = config.model_cfg
 
     train_loader.batch_sampler.set_epoch(epoch)
     global global_step
@@ -336,54 +339,52 @@ def train_and_evaluate(rank, epoch, config, nets, optims, schedulers, scaler, lo
         scaler.step(optim_g)
         scaler.update()
 
-        if rank == 0:
-            if global_step % train_cfg.log_interval == 0:
-                lr = optim_g.param_groups[0]['lr']
-                losses = [loss_disc, loss_gen, loss_fm, loss_mel, loss_dur, loss_kl]
-                logger.info('Train Epoch: {} [{:.0f}%]'.format(
-                    epoch,
-                    100. * batch_idx / len(train_loader)))
-                logger.info([x.item() for x in losses] + [global_step, lr])
+        if global_step % train_cfg.log_interval == 0:
+            lr = optim_g.param_groups[0]['lr']
+            losses = [loss_disc, loss_gen, loss_fm, loss_mel, loss_dur, loss_kl]
+            logger.info('Train Epoch: {} [{:.0f}%]'.format(
+                epoch, 100. * batch_idx / len(train_loader))
+            )
+            logger.info([x.item() for x in losses] + [global_step, lr])
 
-                scalar_dict = {"loss/g/total": loss_gen_all, "loss/d/total": loss_disc_all, "learning_rate": lr,
-                               "grad_norm_d": grad_norm_d, "grad_norm_g": grad_norm_g}
-                scalar_dict.update(
-                    {"loss/g/fm": loss_fm, "loss/g/mel": loss_mel, "loss/g/dur": loss_dur, "loss/g/kl": loss_kl})
-                scalar_dict.update({"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)})
-                scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
-                scalar_dict.update({"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)})
+            scalar_dict = {
+                "loss/g/total": loss_gen_all, "loss/d/total": loss_disc_all, "learning_rate": lr,
+                "grad_norm_d": grad_norm_d, "grad_norm_g": grad_norm_g}
+            scalar_dict.update(
+                {"loss/g/fm": loss_fm, "loss/g/mel": loss_mel, "loss/g/dur": loss_dur, "loss/g/kl": loss_kl})
+            scalar_dict.update({"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)})
+            scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
+            scalar_dict.update({"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)})
 
-                image_dict = {
-                    "slice/mel_org": util.plot_spectrogram_to_numpy(y_mel[0].data.cpu().numpy()),
-                    "slice/mel_gen": util.plot_spectrogram_to_numpy(y_hat_mel[0].data.cpu().numpy()),
-                    "all/mel": util.plot_spectrogram_to_numpy(mel[0].data.cpu().numpy()),
-                    "all/attn": util.plot_alignment_to_numpy(attn[0, 0].data.cpu().numpy())
-                }
-                util.summarize(
-                    writer=writer,
-                    global_step=global_step,
-                    images=image_dict,
-                    scalars=scalar_dict)
+            image_dict = {
+                "slice/mel_org": util.plot_spectrogram_to_numpy(y_mel[0].data.cpu().numpy()),
+                "slice/mel_gen": util.plot_spectrogram_to_numpy(y_hat_mel[0].data.cpu().numpy()),
+                "all/mel": util.plot_spectrogram_to_numpy(mel[0].data.cpu().numpy()),
+                "all/attn": util.plot_alignment_to_numpy(attn[0, 0].data.cpu().numpy())
+            }
+            util.summarize(
+                writer=writer,
+                global_step=global_step,
+                images=image_dict,
+                scalars=scalar_dict)
 
-            if global_step % train_cfg.eval_interval == 0:
-                evaluate(data_cfg, net_g, eval_loader, writer_eval)
-                util.save_checkpoint(net_g, optim_g, train_cfg.learning_rate, epoch,
-                                      os.path.join(train_ms_cfg.save_model_path, "G_{}.pth".format(global_step)))
-                util.save_checkpoint(net_d, optim_d, train_cfg.learning_rate, epoch,
-                                      os.path.join(train_ms_cfg.save_model_path, "D_{}.pth".format(global_step)))
-                if net_dur_disc is not None:
-                    util.save_checkpoint(net_dur_disc, optim_dur_disc, train_cfg.learning_rate, epoch,
-                                          os.path.join(train_ms_cfg.save_model_path, "DUR_{}.pth".format(global_step)))
-                # keep_ckpts = getattr(hps.train, 'keep_ckpts', 5)
-                keep_ckpts = train_cfg.keep_ckpts
-                if keep_ckpts > 0:
-                    util.clean_checkpoints(path_to_models=train_ms_cfg.save_model_path, n_ckpts_to_keep=keep_ckpts,
-                                           sort_by_time=True)
+        if global_step % train_cfg.eval_interval == 0:
+            evaluate(data_cfg, net_g, eval_loader, writer_eval)
+            util.save_checkpoint(net_g, optim_g, train_cfg.learning_rate, epoch,
+                                  os.path.join(train_ms_cfg.save_model_path, "G_{}.pth".format(global_step)))
+            util.save_checkpoint(net_d, optim_d, train_cfg.learning_rate, epoch,
+                                  os.path.join(train_ms_cfg.save_model_path, "D_{}.pth".format(global_step)))
+            if net_dur_disc is not None:
+                util.save_checkpoint(net_dur_disc, optim_dur_disc, train_cfg.learning_rate, epoch,
+                                      os.path.join(train_ms_cfg.save_model_path, "DUR_{}.pth".format(global_step)))
+            # keep_ckpts = getattr(hps.train, 'keep_ckpts', 5)
+            keep_ckpts = train_cfg.keep_ckpts
+            if keep_ckpts > 0:
+                util.clean_checkpoints(path_to_models=train_ms_cfg.save_model_path, n_ckpts_to_keep=keep_ckpts,
+                                       sort_by_time=True)
 
-        global_step += 1
-
-    if rank == 0:
-        logger.info('====> Epoch: {}'.format(epoch))
+    global_step += 1
+    logger.info('====> Epoch: {}'.format(epoch))
 
 
 def evaluate(data_cfg: DataConfig, generator, eval_loader, writer_eval):

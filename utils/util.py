@@ -4,11 +4,11 @@ import sys
 import json
 import torch
 import logging
-import argparse
 import subprocess
 import numpy as np
 from typing import Tuple
 from scipy.io import wavfile
+# import argparse
 
 MATPLOTLIB_FLAG = False
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -24,12 +24,12 @@ def load_checkpoint(checkpoint_path: str, model, optimizer=None, skip_optimizer=
     if optimizer is not None and not skip_optimizer and checkpoint_dict['optimizer'] is not None:
         optimizer.load_state_dict(checkpoint_dict['optimizer'])
     elif optimizer is None and not skip_optimizer:
-    #else: #Disable this line if Infer ,and enable the line upper
         new_opt_dict = optimizer.state_dict()
         new_opt_dict_params = new_opt_dict['param_groups'][0]['params']
         new_opt_dict['param_groups'] = checkpoint_dict['optimizer']['param_groups']
         new_opt_dict['param_groups'][0]['params'] = new_opt_dict_params
         optimizer.load_state_dict(new_opt_dict)
+    # else: #Disable this line if Infer ,and enable the line upper
 
     saved_state_dict = checkpoint_dict['model']
     if hasattr(model, 'module'):
@@ -40,17 +40,17 @@ def load_checkpoint(checkpoint_path: str, model, optimizer=None, skip_optimizer=
 
     for k, v in state_dict.items():
         try:
-            #assert "emb_g" not in k
-            # print("load", k)
             new_state_dict[k] = saved_state_dict[k]
             assert saved_state_dict[k].shape == v.shape, (saved_state_dict[k].shape, v.shape)
         except:
             print("error, %s is not in the checkpoint" % k)
             new_state_dict[k] = v
+
     if hasattr(model, 'module'):
         model.module.load_state_dict(new_state_dict, strict=False)
     else:
         model.load_state_dict(new_state_dict, strict=False)
+
     print("load ")
     logger.info("Loaded checkpoint '{}' (iteration {})".format(
         checkpoint_path, iteration))
@@ -91,7 +91,7 @@ def latest_checkpoint_path(dir_path, regex="G_*.pth"):
     f_list = glob.glob(os.path.join(dir_path, regex))
     f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
     x = f_list[-1]
-    print(x)
+    # print(x)
     return x
 
 
@@ -129,6 +129,7 @@ def plot_alignment_to_numpy(alignment, info=None):
         MATPLOTLIB_FLAG = True
         mpl_logger = logging.getLogger('matplotlib')
         mpl_logger.setLevel(logging.WARNING)
+
     import matplotlib.pylab as plt
     import numpy as np
 
