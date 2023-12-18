@@ -1,6 +1,7 @@
 import torch
 import whisper
 import argparse
+from tqdm import tqdm
 from loguru import logger
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
@@ -10,10 +11,9 @@ from utils.config import Vits2Config
 from tools.init_project import create_project_dirs, download_pretrained_models
 from tools.gen_samples import generate_training_samples
 from tools.gen_bert import process_line
-from tqdm import tqdm
 from tools.train_ms import run
-# import logging
-# logging.getLogger('numba').setLevel(logging.INFO)
+from tools.infer import generate_tts_audio
+
 
 
 def step1_init_project(
@@ -54,30 +54,43 @@ def stage4_split_audio(whisper_model_size: str = "medium"):
     split_audio_vad_asr(
         audio_filepath="audio/denoise/nana/nana_speech.wav",
         spk_id="nana",
-        whisper_model=whisper_model,
+        whisper_model=whisper_model
     )
 
 
-def stage5_generate_training_samples():
+def stage5_generate_training_samples(config: Vits2Config):
     """生成训练样本"""
-    generate_training_samples(proj_cfg.gen_samples_cfg)
+    generate_training_samples(config.gen_samples_cfg)
 
 
-def stage6_generate_bert_files():
+def stage6_generate_bert_files(config: Vits2Config):
     """生成 BERT 训练文件"""
     lines = []
-    with open(proj_cfg.gen_samples_cfg.train_path, encoding='utf-8') as f:
+    with open(config.gen_samples_cfg.train_path, encoding='utf-8') as f:
         lines.extend(f.readlines())
     
     for line in tqdm(lines):
-        process_line(line, proj_cfg.data_cfg.add_blank)
+        process_line(line, config.data_cfg.add_blank)
 
+
+def stage8_generate_audio(sid: str, config: Vits2Config, model_step: str = None):
+    """生成音频"""
+    text = "先生，怎么逾期那么久了，还不还钱啊"
+    audio_path = generate_tts_audio(
+        text=text,
+        sid=sid,
+        audio_save_filename="nana_tts.wav",
+        config=config,
+        model_path=f"{config.train_ms_cfg.save_model_path}/G_{model_step}.pth"
+    )
+    return audio_path
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", '-s', default=1, type=int)
     parser.add_argument("--spk_id", '-sid', default="", type=str)
+    parser.add_argument("--model_step", default="", type=str)
     parser.add_argument(
         '--download_project_pretrained_models', '-dppm', action="store_true",
         default=False, help="是否下载预训练模型"
@@ -96,12 +109,12 @@ if __name__ == '__main__':
     elif args.stage == 4:
         stage4_split_audio(args.whisper_size)
     elif args.stage == 5:
-        stage5_generate_training_samples()
+        stage5_generate_training_samples(proj_cfg)
     elif args.stage == 6:
-        stage6_generate_bert_files()
+        stage6_generate_bert_files(proj_cfg)
     elif args.stage == 7:
         run(config=proj_cfg)
     elif args.stage == 8:
-        ...
+        stage8_generate_audio(sid=args.sid, config=proj_cfg, model_step=args.model_step)
     else:
         raise ValueError("`--stage` parameter must be in 1~8, default 1.")

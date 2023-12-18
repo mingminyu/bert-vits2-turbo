@@ -99,6 +99,10 @@ def split_audio_asr(
         start_time, end_time = seg["start"], seg["end"]
         seg_duration = seg["end"] - seg["start"]
         seg_text = seg["text"]
+
+        if seg_duration < 1:
+            continue
+
         logger.info(
             f"\ntime: {round(start_time, 2)}-{round(end_time, 2)}, duration: {round(seg_duration, 2)}"
             f"\ntext: {seg_text}"
