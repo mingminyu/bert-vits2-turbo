@@ -3,6 +3,8 @@ tensorflow==2.13.0
 torchvision==0.14.0
 torchaudio==0.13.0
 pydantic==1.10.13
+torchdata==0.5.0
+torchtext==0.14.0
 cn2an
 scipy
 numpy

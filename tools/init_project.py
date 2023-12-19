@@ -31,7 +31,7 @@ def create_project_dirs(spk_id: str = "") -> None:
         os.makedirs("pretrained_models/whisper")
 
 
-def download_pretrained_models(
+def download_project_pretrained_models(
     whisper_size: str = "medium",
 ):
     """下载预训练模型

@@ -8,7 +8,7 @@ from modelscope.utils.constant import Tasks
 
 from utils.audio import denoise_audio, split_audio_vad_asr
 from utils.config import Vits2Config
-from tools.init_project import create_project_dirs, download_pretrained_models
+from tools.init_project import create_project_dirs, download_project_pretrained_models
 from tools.gen_samples import generate_training_samples
 from tools.gen_bert import process_line
 from tools.train_ms import run
@@ -17,13 +17,13 @@ from tools.infer import generate_tts_audio
 
 
 def step1_init_project(
-    download_project_pretrained_models: bool = False,
+    download_pretrained_models: bool = False,
     whisper_size: str = "medium"
 ):
     create_project_dirs()
 
-    if download_project_pretrained_models:
-        download_pretrained_models(whisper_size)
+    if download_pretrained_models:
+        download_project_pretrained_models(whisper_size)
 
 
 def stage3_denoise_audio():
@@ -79,7 +79,7 @@ def stage8_generate_audio(sid: str, config: Vits2Config, model_step: str = None)
     audio_path = generate_tts_audio(
         text=text,
         sid=sid,
-        audio_save_filename="nana_tts.wav",
+        audio_save_filename=f"{sid}_tts.wav",
         config=config,
         model_path=f"{config.train_ms_cfg.save_model_path}/G_{model_step}.pth"
     )
@@ -92,16 +92,18 @@ if __name__ == '__main__':
     parser.add_argument("--spk_id", '-sid', default="", type=str)
     parser.add_argument("--model_step", default="", type=str)
     parser.add_argument(
-        '--download_project_pretrained_models', '-dppm', action="store_true",
+        '--download_pretrained_models', '-dpm', action="store_true",
         default=False, help="是否下载预训练模型"
     )
     parser.add_argument("--whisper_size", '-ws', default="medium", type=str)
     args = parser.parse_args()
 
-    proj_cfg = Vits2Config(yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json")
+    proj_cfg = Vits2Config(
+        yaml_cfg_path="config/config.yml", json_cfg_path="config/config.json"
+    )
 
     if args.stage == 1:
-        step1_init_project(args.download_project_pretrained_models, args.whisper_size)
+        step1_init_project(args.download_pretrained_models, args.whisper_size)
     elif args.stage == 2:
         ...  # 分离双声道
     elif args.stage == 3:
@@ -115,6 +117,6 @@ if __name__ == '__main__':
     elif args.stage == 7:
         run(config=proj_cfg)
     elif args.stage == 8:
-        stage8_generate_audio(sid=args.sid, config=proj_cfg, model_step=args.model_step)
+        stage8_generate_audio(sid=args.spk_id, config=proj_cfg, model_step=args.model_step)
     else:
         raise ValueError("`--stage` parameter must be in 1~8, default 1.")
