@@ -17,7 +17,7 @@ from tools.infer import generate_tts_audio
 
 
 
-def step1_init_project(
+def stage1_init_project(
     download_pretrained_models: bool = False,
     whisper_size: str = "medium"
 ):
@@ -27,7 +27,7 @@ def step1_init_project(
         download_project_pretrained_models(whisper_size)
 
 
-def step2_split_audio_channel(
+def stage2_split_audio_channel(
         audio_path: str,
         spk_id: str,
         keep_channel: int
@@ -58,7 +58,11 @@ def stage3_denoise_audio(
     logger.info(f"音频降噪完成，路径为: {denoise_audio_path}")
 
 
-def stage4_split_audio(whisper_model_size: str = "medium"):
+def stage4_split_audio(
+        audio_path: str,
+        spk_id: str,
+        whisper_model_size: str = "medium"
+):
     """切分音频"""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"加载 Whisper ASR 模型: {whisper_model_size}")
@@ -67,10 +71,19 @@ def stage4_split_audio(whisper_model_size: str = "medium"):
         download_root="./pretrained_models/whisper"
     )
 
+    vad_model_name = "speech_fsmn_vad_zh-cn-16k-common-pytorch"
+    logger.info(f"加载静音检测模型: {vad_model_name}")
+    vad_ans = pipeline(
+        task=Tasks.voice_activity_detection,
+        model='./models/damo/speech_fsmn_vad_zh-cn-16k-common-pytorch',
+        model_revision=None,
+    )
+
     split_audio_vad_asr(
-        audio_filepath="audio/denoise/nana/nana_speech.wav",
-        spk_id="nana",
-        whisper_model=whisper_model
+        audio_path=audio_path,
+        spk_id=spk_id,
+        whisper_model=whisper_model,
+        vad_ans=vad_ans,
     )
 
 
@@ -119,17 +132,25 @@ if __name__ == '__main__':
     )
 
     if args.stage == 1:
-        step1_init_project(args.download_pretrained_models, args.whisper_size)
+        stage1_init_project(args.download_pretrained_models, args.whisper_size)
     elif args.stage == 2:
         upload_files = glob.glob("audio/upload/*/*.wav")
         for upload_file in tqdm(upload_files):
             sid = upload_file.split("/")[-2]
-            step2_split_audio_channel(upload_file, sid, 1)
+            stage2_split_audio_channel(upload_file, sid, 1)
 
     elif args.stage == 3:
-        stage3_denoise_audio()
+        split_files = glob.glob("audio/split/*/*.wav")
+        for split_file in tqdm(split_files):
+            sid = split_file.split("/")[-2]
+            stage3_denoise_audio(split_file, sid)
+
     elif args.stage == 4:
-        stage4_split_audio(args.whisper_size)
+        denoise_files = glob.glob("audio/denoise/*/*.wav")
+        for denoise_file in tqdm(denoise_files):
+            sid = denoise_file.split("/")[-2]
+            stage4_split_audio(denoise_file, sid, args.whisper_size)
+
     elif args.stage == 5:
         stage5_generate_training_samples(proj_cfg)
     elif args.stage == 6:

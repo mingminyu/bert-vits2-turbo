@@ -139,7 +139,7 @@ def split_audio_asr(
 
 
 def split_audio_vad_asr(
-    audio_filepath: str,
+    audio_path: str,
     spk_id: str,
     whisper_model: Whisper,
     vad_ans: Pipeline = None,
@@ -147,16 +147,54 @@ def split_audio_vad_asr(
 ) -> None:
     """切分音频"""
     # TODO: 完成 VAD 部分
-    if not os.path.exists(audio_filepath):
-        raise FileNotFoundError(f"Error: {audio_filepath} 录音文件不存在")
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"Error: {audio_path} 录音文件不存在")
 
     if not os.path.exists(f"audio/vad/{spk_id}"):
         os.mkdir(f"audio/vad/{spk_id}")
 
-    audio_duration = librosa.get_duration(path=audio_filepath)
+    audio_duration = librosa.get_duration(path=audio_path)
 
     # 如果音频时长 <= 180s，直接使用 Whisper ASR 进行音频切分
     if audio_duration <= 180:
-        split_audio_asr(audio_filepath, spk_id, whisper_model)
+        split_audio_asr(audio_path, spk_id, whisper_model)
     else:
-        ...
+        wav_data, sr = librosa.load(audio_path)
+        wav_data, _ = librosa.effects.trim(wav_data, top_db=20)
+        peak = np.abs(wav_data).max()
+
+        if peak > 1.0:
+            wav_data = 0.98 * wav_data / peak
+
+        # vad 算法采用的采样率为 16000
+        wav_data = librosa.resample(wav_data, orig_sr=sr, target_sr=16000)
+        wav_data /= max(wav_data.max(), -wav_data.min())
+
+        # 有些音频经过 VAD 检测后，没有检测出静音，需要使用 whisper 再次切分
+        vad_result = vad_ans(audio_in=wav_data)
+        audio_duration = wav_data.shape[0] / 16
+        logger.info(f"{audio_path} duration: {int(audio_duration)}")
+
+        wav_filename = os.path.basename(audio_path).split('.')[0]
+        vad_save_dir = f"audio/vad/{spk_id}"
+
+        # 如果已经有 vad 生成文件，则清除
+        vad_wavs_exist = glob.glob(f"{vad_save_dir}/{wav_filename}*.wav")
+        _ = [os.remove(vad_wav_exist) for vad_wav_exist in vad_wavs_exist]
+
+        cnt = 0
+        for idx, seg in enumerate(vad_result["text"]):
+            if (seg[1] - seg[0]) >= 2000:
+                duration = (seg[1] - seg[0]) / 1000
+                seg_start, seg_end = int(seg[0] * 16), int(seg[1] * 16)
+
+                output_path = os.path.join(vad_save_dir, f"{wav_filename}_{cnt}.wav")
+                logger.info(f"{output_path} duration: {int(duration)}")
+                wav_seg_data = librosa.resample(wav_data[seg_start:seg_end], orig_sr=16000, target_sr=44100)
+                wav_seg_data = (wav_seg_data * np.iinfo(np.int16).max).astype(np.int16)
+
+                # 再次重采样至 44100
+                wavfile.write(output_path, rate=44100, data=wav_seg_data)
+                # 再经过 whisper 切分
+                split_audio_asr(output_path, spk_id, whisper_model)
+
