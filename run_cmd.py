@@ -75,7 +75,7 @@ def stage4_split_audio(
     logger.info(f"加载静音检测模型: {vad_model_name}")
     vad_ans = pipeline(
         task=Tasks.voice_activity_detection,
-        model='./models/damo/speech_fsmn_vad_zh-cn-16k-common-pytorch',
+        model='./pretrained_models/damo/speech_fsmn_vad_zh-cn-16k-common-pytorch',
         model_revision=None,
     )
 
