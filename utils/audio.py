@@ -17,7 +17,7 @@ from whisper.model import Whisper
 
 def split_audio_channel(
     audio_filepath: str,
-    save_channel: Literal[0, 1, 2],
+    keep_channel: int,
     spk_id: str
 ) -> str:
     """切分双声道音频"""
@@ -29,12 +29,20 @@ def split_audio_channel(
 
     save_path = os.path.join(f"audio/split/{spk_id}", os.path.basename(audio_filepath))
 
-    if save_channel == 2:
+    if keep_channel == 2:
         shutil.copy(audio_filepath, f"audio/split/{spk_id}")
         return save_path
 
-    sr, wav_data = wavfile.read(audio_filepath)
-    role_wav_data = [item[save_channel] for item in wav_data]
+    try:
+        sr, wav_data = wavfile.read(audio_filepath)
+    except ValueError:
+        wav_data, sr = librosa.load(audio_filepath)
+
+    if len(wav_data.shape) == 1:
+        shutil.copy(audio_filepath, f"audio/split/{spk_id}")
+        return save_path
+
+    role_wav_data = [item[keep_channel] for item in wav_data]
     save_path = os.path.join(f"audio/split/{spk_id}", os.path.basename(audio_filepath))
     wavfile.write(save_path, sr, np.array(role_wav_data))
     return save_path

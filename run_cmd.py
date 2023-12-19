@@ -1,3 +1,4 @@
+import glob
 import torch
 import whisper
 import argparse
@@ -6,7 +7,7 @@ from loguru import logger
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 
-from utils.audio import denoise_audio, split_audio_vad_asr
+from utils.audio import denoise_audio, split_audio_vad_asr, split_audio_channel
 from utils.config import Vits2Config
 from tools.init_project import create_project_dirs, download_project_pretrained_models
 from tools.gen_samples import generate_training_samples
@@ -26,7 +27,22 @@ def step1_init_project(
         download_project_pretrained_models(whisper_size)
 
 
-def stage3_denoise_audio():
+def step2_split_audio_channel(
+        audio_path: str,
+        spk_id: str,
+        keep_channel: int
+):
+    split_audio_channel(
+        audio_filepath=audio_path,
+        spk_id=spk_id,
+        keep_channel=keep_channel
+    )
+
+
+def stage3_denoise_audio(
+        audio_path: str,
+        spk_id: str,
+):
     denoise_model_name = "speech_dfsmn_ans_psm_48k_causal"
     logger.info(f"加载音频降噪模型: {denoise_model_name}")
     denoise_ans = pipeline(
@@ -36,8 +52,8 @@ def stage3_denoise_audio():
 
     denoise_audio_path = denoise_audio(
         denoise_ans=denoise_ans,
-        audio_filepath="audio/examples/nana_speech.wav",
-        spk_id="nana",
+        audio_filepath=audio_path,
+        spk_id=spk_id,
     )
     logger.info(f"音频降噪完成，路径为: {denoise_audio_path}")
 
@@ -105,7 +121,11 @@ if __name__ == '__main__':
     if args.stage == 1:
         step1_init_project(args.download_pretrained_models, args.whisper_size)
     elif args.stage == 2:
-        ...  # 分离双声道
+        upload_files = glob.glob("audio/upload/*/*.wav")
+        for upload_file in tqdm(upload_files):
+            sid = upload_file.split("/")[-2]
+            step2_split_audio_channel(upload_file, sid, 1)
+
     elif args.stage == 3:
         stage3_denoise_audio()
     elif args.stage == 4:
