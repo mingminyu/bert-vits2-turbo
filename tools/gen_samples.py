@@ -17,7 +17,7 @@ def generate_training_samples(
 ):
     """生成训练样本"""
     df = pd.concat(
-        [pd.read_csv(file) for file in glob.glob(f"{gen_samples_config.asr_dir}/*/*.csv")],
+        [pd.read_csv(file) for file in glob.glob(f"{gen_samples_config.asr_dir}/*/*.list")],
         ignore_index=True
     )
     df["text"] = df["text"].str.strip()

@@ -1,15 +1,13 @@
 import os
 import glob
 import shutil
-import warnings
 import librosa
 import whisper
-import torch
 import numpy as np
 import pandas as pd
 from loguru import logger
 from scipy.io import wavfile
-from typing import Literal, List, Union
+from typing import List, Union
 from modelscope.pipelines import Pipeline
 from whisper.model import Whisper
 
@@ -132,7 +130,7 @@ def split_audio_asr(
     if not os.path.exists(f"data/asr/{spk_id}"):
         os.makedirs(f"data/asr/{spk_id}")
 
-    df_audio_asr.to_csv(f"data/asr/{spk_id}/{audio_filename}.csv",
+    df_audio_asr.to_csv(f"data/asr/{spk_id}/{audio_filename}.list",
                         index=False, encoding="utf8")
     audios_segments = [audios_segment_info[0] for audios_segment_info in audios_segments_info]
     return audios_segments
@@ -197,4 +195,5 @@ def split_audio_vad_asr(
                 wavfile.write(output_path, rate=44100, data=wav_seg_data)
                 # 再经过 whisper 切分
                 split_audio_asr(output_path, spk_id, whisper_model)
+                cnt += 1
 

@@ -4,8 +4,10 @@ import whisper
 import argparse
 from tqdm import tqdm
 from loguru import logger
+from whisper import Whisper
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
+from modelscope.pipelines import Pipeline
 
 from utils.audio import denoise_audio, split_audio_vad_asr, split_audio_channel
 from utils.config import Vits2Config
@@ -61,23 +63,28 @@ def stage3_denoise_audio(
 def stage4_split_audio(
         audio_path: str,
         spk_id: str,
-        whisper_model_size: str = "medium"
+        whisper_model_size: str = "medium",
+        whisper_model: Whisper = None,
+        vad_ans: Pipeline = None
 ):
     """切分音频"""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    logger.info(f"加载 Whisper ASR 模型: {whisper_model_size}")
-    whisper_model = whisper.load_model(
-        whisper_model_size, device=device,
-        download_root="./pretrained_models/whisper"
-    )
 
-    vad_model_name = "speech_fsmn_vad_zh-cn-16k-common-pytorch"
-    logger.info(f"加载静音检测模型: {vad_model_name}")
-    vad_ans = pipeline(
-        task=Tasks.voice_activity_detection,
-        model='./pretrained_models/damo/speech_fsmn_vad_zh-cn-16k-common-pytorch',
-        model_revision=None,
-    )
+    if whisper_model is None:
+        logger.info(f"加载 Whisper ASR 模型: {whisper_model_size}")
+        whisper_model = whisper.load_model(
+            whisper_model_size, device=device,
+            download_root="./pretrained_models/whisper"
+        )
+
+    if vad_ans is None:
+        vad_model_name = "speech_fsmn_vad_zh-cn-16k-common-pytorch"
+        logger.info(f"加载静音检测模型: {vad_model_name}")
+        vad_ans = pipeline(
+            task=Tasks.voice_activity_detection,
+            model='./pretrained_models/damo/speech_fsmn_vad_zh-cn-16k-common-pytorch',
+            model_revision=None,
+        )
 
     split_audio_vad_asr(
         audio_path=audio_path,
@@ -147,9 +154,21 @@ if __name__ == '__main__':
 
     elif args.stage == 4:
         denoise_files = glob.glob("audio/denoise/*/*.wav")
+        logger.info(f"加载 Whisper ASR 模型: large-v3")
+        whisper_mdl = whisper.load_model(
+            args.whisper_size, device="cuda",
+            download_root="./pretrained_models/whisper"
+        )
+
+        logger.info(f"加载静音检测模型: speech_fsmn_vad_zh-cn-16k-common-pytorch")
+        vad_mdl = pipeline(
+            task=Tasks.voice_activity_detection,
+            model='./pretrained_models/damo/speech_fsmn_vad_zh-cn-16k-common-pytorch',
+            model_revision=None,
+        )
         for denoise_file in tqdm(denoise_files):
             sid = denoise_file.split("/")[-2]
-            stage4_split_audio(denoise_file, sid, args.whisper_size)
+            stage4_split_audio(denoise_file, sid, args.whisper_size, whisper_mdl, vad_mdl)
 
     elif args.stage == 5:
         stage5_generate_training_samples(proj_cfg)
