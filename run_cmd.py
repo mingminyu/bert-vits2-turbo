@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     elif args.stage == 4:
         denoise_files = glob.glob("audio/denoise/*/*.wav")
-        logger.info(f"加载 Whisper ASR 模型: large-v3")
+        logger.info(f"加载 Whisper ASR 模型: {args.whisper_size}")
         whisper_mdl = whisper.load_model(
             args.whisper_size, device="cuda",
             download_root="./pretrained_models/whisper"

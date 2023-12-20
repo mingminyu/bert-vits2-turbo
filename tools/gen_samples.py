@@ -17,9 +17,10 @@ def generate_training_samples(
 ):
     """生成训练样本"""
     df = pd.concat(
-        [pd.read_csv(file) for file in glob.glob(f"{gen_samples_config.asr_dir}/*/*.list")],
+        [pd.read_csv(file, sep="|") for file in glob.glob(f"{gen_samples_config.asr_dir}/*/*.csv")],
         ignore_index=True
     )
+    df = df.loc[df["text"].notnull()].reset_index(drop=True)
     df["text"] = df["text"].str.strip()
     df["cleaned"] = df[["text", "lang"]].apply(lambda s: clean_text(s[0], s[1]), axis=1)
     df["norm_text"] = df['cleaned'].map(lambda s: s[0])

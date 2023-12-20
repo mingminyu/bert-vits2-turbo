@@ -1,3 +1,4 @@
+torch==1.13.0
 funasr>=0.6.5
 kaldiio
 matplotlib

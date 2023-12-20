@@ -106,7 +106,7 @@ def split_audio_asr(
         seg_duration = seg["end"] - seg["start"]
         seg_text = seg["text"]
 
-        if seg_duration < 1:
+        if seg_duration < 1.5 or seg_duration > 8 or len(seg_text) < 5:
             continue
 
         logger.info(
@@ -121,7 +121,7 @@ def split_audio_asr(
             data=(audio_seg * np.iinfo(np.int16).max).astype(np.int16)
         )
 
-        audios_segments_info.append([out_filepath, spk_id, "ZH", seg_text, seg_duration])
+        audios_segments_info.append([out_filepath, spk_id, "ZH", seg_text, round(seg_duration, 2)])
 
     df_audio_asr = pd.DataFrame(
         audios_segments_info, columns=["audio_id", "spk_id", "lang", "text", "duration"]
@@ -130,8 +130,8 @@ def split_audio_asr(
     if not os.path.exists(f"data/asr/{spk_id}"):
         os.makedirs(f"data/asr/{spk_id}")
 
-    df_audio_asr.to_csv(f"data/asr/{spk_id}/{audio_filename}.list",
-                        index=False, encoding="utf8")
+    df_audio_asr.to_csv(f"data/asr/{spk_id}/{audio_filename}.csv",
+                        index=False, encoding="utf8", sep="|")
     audios_segments = [audios_segment_info[0] for audios_segment_info in audios_segments_info]
     return audios_segments
 
@@ -182,7 +182,7 @@ def split_audio_vad_asr(
 
         cnt = 0
         for idx, seg in enumerate(vad_result["text"]):
-            if (seg[1] - seg[0]) >= 2000:
+            if (seg[1] - seg[0]) >= 3000:
                 duration = (seg[1] - seg[0]) / 1000
                 seg_start, seg_end = int(seg[0] * 16), int(seg[1] * 16)
 

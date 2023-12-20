@@ -14,6 +14,10 @@ from text import cleaned_text_to_sequence, get_bert
 
 def process_line(line: str, add_blank: bool = True):
     wav_path, spk, language_str, text, phones, tone, word2ph = line.strip().split("|")
+
+    if not os.path.exists(wav_path):
+        raise FileNotFoundError(f"{wav_path} not found!")
+
     phone = phones.split(" ")
     tone = [int(i) for i in tone.split(" ")]
     word2ph = [int(i) for i in word2ph.split(" ")]
