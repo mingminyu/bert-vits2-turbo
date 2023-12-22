@@ -6,6 +6,7 @@ import whisper
 import numpy as np
 import pandas as pd
 from loguru import logger
+from pydantic import BaseModel
 from scipy.io import wavfile
 from typing import List, Union
 from modelscope.pipelines import Pipeline
@@ -63,6 +64,12 @@ def denoise_audio(
     return save_path
 
 
+class AsrSegmentResult(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
 def split_audio_asr(
     audio_filepath: str,
     spk_id: str,
@@ -70,6 +77,25 @@ def split_audio_asr(
     target_sr: int = 44100
 ) -> Union[None, List[str]]:
     """使用 ASR 切分音频，因为模型训练所需音频的采样率未 44100，所以这里切分后的音频都重采样为 44100"""
+    def __reformat_asr_segments(asr_segments: List[AsrSegmentResult]) -> List[AsrSegmentResult]:
+        """重新格式化的操作:
+        满足以下条件，则该 segment 向后拼接
+        1. 如果当前 segment 的文本长度 < 5 或音频时长 < 1s，则向后拼接
+        """
+        segments = asr_segments.copy()
+        reformat_segments = []
+        for idx, seg_res in enumerate(segments):
+            # 判断字符长度，如果小于 5，则往后拼接
+            if (idx < len(segments) - 1) and (
+                len(seg_res.text) < 5 or (seg_res.end - seg_res.start) < 1
+            ):
+                segments[idx + 1].start = seg_res.start
+                segments[idx + 1].text = seg_res.text + " " + segments[idx + 1].text
+            else:
+                reformat_segments.append(seg_res)
+
+        return reformat_segments
+
     asr_res = whisper.transcribe(
         model=whisper_model,
         audio=audio_filepath,
@@ -81,16 +107,8 @@ def split_audio_asr(
         logger.warning("Warning: 检测到音频非中文")
         return None
 
-    wav, sr = librosa.load(audio_filepath, sr=None, offset=0, duration=None, mono=True)
-    wav, _ = librosa.effects.trim(wav, top_db=20)
-    peak = np.abs(wav).max()
-
-    if peak > 1.0:
-        wav = 0.98 * wav / peak
-
-    # 对音频重置采样为 target_sr
-    wav2 = librosa.resample(wav, orig_sr=sr, target_sr=target_sr)
-    wav2 /= max(wav2.max(), -wav2.min())
+    asr_res = [AsrSegmentResult(**item) for item in asr_res["segments"]]
+    asr_res_reformatted = __reformat_asr_segments(asr_res)
 
     save_dir = os.path.join("audio", "segments", spk_id)
     audio_filename = os.path.basename(audio_filepath).split('.')[0]
@@ -99,29 +117,21 @@ def split_audio_asr(
         os.makedirs(save_dir)
 
     _ = [os.remove(file) for file in glob.glob(f"audio/segments/{spk_id}/{audio_filename}*.wav")]
+    wav, sr = librosa.load(audio_filepath, sr=None, offset=0, duration=None, mono=True)
 
     audios_segments_info = []
-    for seg in asr_res["segments"]:
-        start_time, end_time = seg["start"], seg["end"]
-        seg_duration = seg["end"] - seg["start"]
-        seg_text = seg["text"]
-
-        if seg_duration < 1.5 or seg_duration > 8 or len(seg_text) < 5:
-            continue
+    for seg in asr_res_reformatted:
+        seg_duration = round(seg.end - seg.start, 2)
 
         logger.info(
-            f"\ntime: {round(start_time, 2)}-{round(end_time, 2)}, duration: {round(seg_duration, 2)}"
-            f"\ntext: {seg_text}"
+            f"\ntime: {round(seg.start, 2)}-{round(seg.end, 2)}, duration: {seg_duration}"
+            f"\ntext: {seg.text}"
         )
-        audio_seg = wav2[int(start_time * target_sr):int(end_time * target_sr)]
+        audio_seg = wav[int(seg.start * target_sr):int(seg.end * target_sr)]
         audio_idx = len(os.listdir(save_dir)) + 1
         out_filepath = f"{save_dir}/{audio_filename}_{audio_idx}.wav"
-        wavfile.write(
-            out_filepath, rate=target_sr,
-            data=(audio_seg * np.iinfo(np.int16).max).astype(np.int16)
-        )
-
-        audios_segments_info.append([out_filepath, spk_id, "ZH", seg_text, round(seg_duration, 2)])
+        wavfile.write(out_filepath, rate=target_sr, data=audio_seg)
+        audios_segments_info.append([out_filepath, spk_id, "ZH", seg.text, seg_duration])
 
     df_audio_asr = pd.DataFrame(
         audios_segments_info, columns=["audio_id", "spk_id", "lang", "text", "duration"]
@@ -144,7 +154,6 @@ def split_audio_vad_asr(
     resample_rate: int = 44100
 ) -> None:
     """切分音频"""
-    # TODO: 完成 VAD 部分
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Error: {audio_path} 录音文件不存在")
 
@@ -152,6 +161,9 @@ def split_audio_vad_asr(
         os.mkdir(f"audio/vad/{spk_id}")
 
     audio_duration = librosa.get_duration(path=audio_path)
+    wav, sr = librosa.load(audio_path, sr=None, offset=0, duration=None, mono=True)
+    wav2 = librosa.resample(wav, orig_sr=sr, target_sr=resample_rate)
+    wavfile.write(audio_path, rate=resample_rate, data=wav2)
 
     # 如果音频时长 <= 180s，直接使用 Whisper ASR 进行音频切分
     if audio_duration <= 180:
@@ -196,4 +208,3 @@ def split_audio_vad_asr(
                 # 再经过 whisper 切分
                 split_audio_asr(output_path, spk_id, whisper_model)
                 cnt += 1
-
